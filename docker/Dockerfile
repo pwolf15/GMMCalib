@@ -5,7 +5,12 @@ RUN apt-get update \
         libgl1-mesa-glx \
         libgomp1 \
         git \
+        openssh-client \
     && rm -rf /var/lib/apt/lists/*
+
+
+# Optional: Configure default permissions for .ssh directory
+RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
 
 WORKDIR /app
 COPY . /app
