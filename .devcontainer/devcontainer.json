@@ -4,7 +4,8 @@
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
     "workspaceFolder": "/workspace",
     "runArgs": [
-      "--init"
+      "-v", "${env:SSH_AUTH_SOCK}:/tmp/ssh-agent",
+      "-e", "SSH_AUTH_SOCK=/tmp/ssh-agent"
     ],
     "settings": {
       "terminal.integrated.defaultProfile.linux": "bash"
