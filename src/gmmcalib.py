@@ -13,6 +13,7 @@ def calibrate(data_path, config_file_path, sequence):
 
     V = [np.array(cloud.points) for cloud in pcds]
     nObs = len(V)
+    print(nObs)
 
     print("####### Perform Calibration and Model Generation. ########")
     X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=100)

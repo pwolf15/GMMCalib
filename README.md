@@ -34,6 +34,9 @@ Then run the GMM-based calibration with:
 
 The results, namely the calibration matrix and the numpy array of the reconstructed object, are saved in the `/output` path.
 
+To install PCL tools for conversion to PLY which you can load in Meshlab
+apt update -y && apt-get -y install pcl-tools
+
 ## Work in Progress (WIP)
 GMMCalib is an ongoing project. Future developments include:
 - Improving the usability of GMMCalib, including input data handling and configuration.
