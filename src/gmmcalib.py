@@ -6,17 +6,31 @@ from modelgenerator import jgmm
 import create_gt
 import numpy as np
 import pickle
+import generateMesh
+
+import numpy as np
+import pandas as pd
+
+def load_cube_model(file_path):
+    """Load the simulated cube model as a point cloud."""
+    cube_df = pd.read_csv(file_path)
+    return cube_df.to_numpy().T  # Return as (3, N) array for consistency
+
 
 def calibrate(data_path, config_file_path, sequence):
     pcds = generatePCDs.generate_data(data_path, config_file_path, sequence)
     Xin = create_gt.create_init_pc(box_size=(0.5, 0.5, 0.5), num_points=400) + np.array([9.8, 4.75, 0.38])
+    # cube_model_path = "./simulated_cube_point_cloud.csv"
+    # Xin = load_cube_model(cube_model_path)
+
+    # inject error
 
     V = [np.array(cloud.points) for cloud in pcds]
     nObs = len(V)
     print(nObs)
 
     print("####### Perform Calibration and Model Generation. ########")
-    X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=10)
+    X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=100)
     print(len(TV))
     print(len(AllT))
  

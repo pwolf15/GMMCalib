@@ -1,5 +1,22 @@
 import open3d as o3d
 import numpy as np
+
+from scipy.spatial import cKDTree
+
+def project_onto_cube(X, cube_model, weight=1.0):
+    """Project GMM centroids onto the cube surface using nearest neighbors."""
+    cube_tree = cKDTree(cube_model.T)
+    distances, indices = cube_tree.query(X.T)
+
+    # Correct the shape to match X
+    closest_points = cube_model[:, indices.flatten()]  # Flatten to avoid shape mismatch
+
+    # Move X towards the closest points on the cube
+    X_updated = X - weight * (X - closest_points)
+    print(f'Before: {X[0][0]}, after: {X_updated[0][0]}')
+
+    return X_updated
+
 ###################################################################################
 #########           M O D E L    G E N E R A T I O N     ##########################
 ###################################################################################
@@ -9,7 +26,6 @@ This code implementation was inpired by G. D. Evangelidis and R. Horaud,
 “Joint Alignment of Multiple Point Sets with Batch and Incremental Expectation-Maximization,” 
 IEEE Transactions on Pattern Analysis and Machine Intelligence, vol. 40, pp. 1397–1410, June 2018.
 """
-
 def jgmm(V, Xin, maxNumIter):
     """Calculate the transformations and jointly align points clouds
     Parameters
@@ -37,6 +53,9 @@ def jgmm(V, Xin, maxNumIter):
 
     V = [np.transpose(i) for i in V]
     X = np.transpose(Xin)
+
+    # store prior for comparison later
+    X_initial = np.copy(X) 
     TV = [] 
 
     """Number of Measurments"""
@@ -88,6 +107,7 @@ def jgmm(V, Xin, maxNumIter):
     T = []
 
     for it in range(maxNumIter):
+        
         print("GMM Iteration: ", it)
         ''' Calculate Posteriors '''
         ''' Squared Error Between transformed frames and compontents'''
@@ -141,9 +161,18 @@ def jgmm(V, Xin, maxNumIter):
         lmdaMatrix = np.asarray(lmda).astype(np.float64)
         den = np.sum(np.moveaxis(lmdaMatrix, 0, 1), axis=1).T
 
+        # Update GMM centroids
         X = [TV[i].dot(alpha[i]) for i in range(len(TV))] # (M, 3, K) Matrix
         X = np.sum(np.stack(np.asarray(X[:]), axis=0), axis=0)
         X = X/den
+
+        # use projection
+        # X_new = X - lambda * (X - X_closest points)
+        # lambda_cube = weights
+        lambda_cube = 0.0
+        X_w_geo_prior = project_onto_cube(X, X_initial, weight=lambda_cube)
+        print(X.shape, X_w_geo_prior.shape)
+        X = X_w_geo_prior
 
         '''Update Covariances '''
         wnormes = [np.sum(np.multiply(alpha[i], sse(np.asarray(TV[i].astype(np.float64)), np.asarray(X))), axis=0) for i in range(len(TV))]
