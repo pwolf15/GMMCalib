@@ -16,13 +16,22 @@ def calibrate(data_path, config_file_path, sequence):
     print(nObs)
 
     print("####### Perform Calibration and Model Generation. ########")
-    X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=100)
-
+    X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=10)
+    print(len(TV))
+    print(len(AllT))
  
+    # create homogeneous transform matrices
+    # these align each point cloud with the GMM model
     T_1 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2)]
     T_2 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2, nObs)]
 
+    # relative transform between 1 and 2
+    # inverse brings 2nd point cloud back to common frame
+    print(len(T_1))
     T_calib = [np.dot(np.linalg.inv(T_2[i]), T_1[i]) for i in range(len(T_1))]
+
+    # average calibration pairs 
+    print(T_calib)
     T_final = transformPCDs.mean_transform(T_calib)
     print("Calibration Error: \n")
     print(T_final)
