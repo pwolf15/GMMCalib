@@ -6,6 +6,8 @@ RUN apt-get update \
         libgomp1 \
         git \
         openssh-client \
+        pkg-config \        # em-gmm example
+        libhdf5-serial-dev  # em-gmm example
     && rm -rf /var/lib/apt/lists/*
 
 

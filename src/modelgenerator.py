@@ -43,6 +43,7 @@ def jgmm(V, Xin, maxNumIter):
     M = len(V)
     """Number of Centroids """
     dim, K = X.shape
+    print("num centroids: ", K)
 
     """Init rotation matrix"""
     R = []
