@@ -1,7 +1,63 @@
 import open3d as o3d
 import numpy as np
+import matplotlib.pyplot as plt
+import imageio
+import os
 
 from scipy.spatial import cKDTree
+
+def save_centroid_frames(X_history, output_folder="centroid_frames"):
+    """
+    Saves each iteration of the centroids as a PNG file.
+
+    Parameters:
+        X_history (list of np.array): List of centroid positions at each iteration.
+        output_folder (str): Folder to save the images.
+    """
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    for i, X in enumerate(X_history):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        ax.scatter(X[0, :], X[1, :], X[2, :], c='blue', marker='o', label=f'Iteration {i}')
+
+        # ax.set_xlim([-1, 1])
+        # ax.set_ylim([-1, 1])
+        # ax.set_zlim([-1, 1])
+
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        ax.set_title(f'Centroids at Iteration {i}')
+        ax.legend()
+
+        filename = os.path.join(output_folder, f"frame_{i:03d}.png")
+        plt.savefig(filename)
+        plt.close(fig)  # Close figure to free memory
+
+
+def create_gif_from_frames(output_folder="centroid_frames", gif_filename="centroid_evolution.gif", duration=0.5):
+    """
+    Creates a GIF from saved centroid PNG images.
+
+    Parameters:
+        output_folder (str): Folder containing the saved PNG frames.
+        gif_filename (str): Output GIF filename.
+        duration (float): Duration per frame in seconds.
+    """
+    images = []
+    filenames = sorted([f for f in os.listdir(output_folder) if f.endswith('.png')])
+    
+    for filename in filenames:
+        file_path = os.path.join(output_folder, filename)
+        images.append(imageio.imread(file_path))
+    
+    gif_path = os.path.join(output_folder, gif_filename)
+    imageio.mimsave(gif_path, images, duration=duration)
+    print(f"GIF saved at: {gif_path}")
+
 
 def project_onto_cube(X, cube_model, weight=1.0):
     """Project GMM centroids onto the cube surface using nearest neighbors."""
@@ -106,6 +162,8 @@ def jgmm(V, Xin, maxNumIter):
     pk = np.transpose(pk)
     T = []
 
+    X_history = []
+
     for it in range(maxNumIter):
         
         print("GMM Iteration: ", it)
@@ -169,10 +227,11 @@ def jgmm(V, Xin, maxNumIter):
         # use projection
         # X_new = X - lambda * (X - X_closest points)
         # lambda_cube = weights
-        lambda_cube = 0.0
-        X_w_geo_prior = project_onto_cube(X, X_initial, weight=lambda_cube)
-        print(X.shape, X_w_geo_prior.shape)
-        X = X_w_geo_prior
+        # lambda_cube = 1.0
+        # X_w_geo_prior = project_onto_cube(X, X_initial, weight=lambda_cube)
+        # print(X.shape, X_w_geo_prior.shape)
+        # X = X_w_geo_prior
+        X_history.append(X.copy())
 
         '''Update Covariances '''
         wnormes = [np.sum(np.multiply(alpha[i], sse(np.asarray(TV[i].astype(np.float64)), np.asarray(X))), axis=0) for i in range(len(TV))]
@@ -181,6 +240,9 @@ def jgmm(V, Xin, maxNumIter):
 
         if updatePriors:
             pk = den / ((gamma+1)*sum(den))
+
+    save_centroid_frames(X_history)
+    create_gif_from_frames()
 
     Q = np.divide(1, Q)
     return X, TV, T, pk
