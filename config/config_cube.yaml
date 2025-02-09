@@ -1,0 +1,9 @@
+number_of_sensors: 2
+transform_sensor_1:
+  - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0] #[roll, pitch, yaw, x, y z]
+transform_sensor_2:
+  - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0] 
+min_bound:
+  - [-20,-10,-5]
+max_bound:
+  - [0, -2.5, 5]

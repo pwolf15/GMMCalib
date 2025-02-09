@@ -39,3 +39,32 @@
 * generate/define ground truth
 * compare estimated transformation w/ known values
 
+# todo
+
+* the first thing I need to do, is to determine the ROI between the 2 overlapping fields
+- [X] for set of PCDs, can I plot over time
+- [X] for 2 sets of PCDs, can I plot over time.
+- [ ] can I plot PCD in global space?
+    / using transformation from config.yaml seems wrong
+    / can I compute using ICP, are the results improved
+    / plotting without transformation looks better
+- [ ] compute ICP -> compute rotation + translation per sensor pair
+    / does it vary per frame
+- [ ] assuming reduced ROI, can I remove the constraint? 
+    / does the result (what is the result?) improve
+    / calibration vs. not calibration
+- [ ] can I plot the centroids over each frame of optimization?
+- CI/CD
+
+
+
+- [ ] can I plot region + ROI
+- [ ] plot before + after ROI (generatePCDs)
+- [ ] set ROI for each point cloud
+    - [ ] you want to plot the globally aligned point clouds 1st
+- [ ] remove code that moves centroid in JRMPC (because this already moves them)
+- [ ] understand output calibration results
+- [ ] should receive 0 calibration error
+- [ ] relax code constraints to allow them to move along the plane
+- [ ] read 
+- [ ] really understand the code
