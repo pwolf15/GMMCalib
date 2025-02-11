@@ -3,6 +3,7 @@ import os
 import generatePCDs
 import transformPCDs
 from modelgenerator import jgmm
+# from modelgenerator_af import jgmm_af
 import create_gt
 import numpy as np
 import pickle
@@ -11,10 +12,54 @@ import generateMesh
 import numpy as np
 import pandas as pd
 
+import open3d as o3d
+from visualizer import Live3DVisualizer
+from visualizer_plotly import Live3DVisualizerPlotly
+
 def load_cube_model(file_path):
     """Load the simulated cube model as a point cloud."""
     cube_df = pd.read_csv(file_path)
     return cube_df.to_numpy().T  # Return as (3, N) array for consistency
+
+def get_initial_pcd_figure(pcds_vf):
+    num_steps = len(pcds_vf) // 2 # number of time steps
+    print(f'Num steps: {num_steps}')
+    traces = []
+    for i in range(num_steps):
+        traces.append({"points": pcds_vf[i], "color": "red", "size": 3, "name": f"sensor 1 step {i}", "is_static": False })
+        traces.append({"points": pcds_vf[num_steps + i], "color": "blue", "size": 3, "name": f"sensor 2 step {i}", "is_static": False})
+    figures_config = {
+        "title": "Initial position of the point clouds",
+        "traces": traces
+    }
+    return figures_config
+
+def get_figures_config():
+
+    figures_config = [
+        {
+            "title": "Initial position of the point clouds",
+            "traces": [
+                {"points": np.random.rand(100, 3), "color": "red", "size": 3, "name": "Xin", "is_static": True},
+                {"points": np.random.rand(50, 3), "color": "blue", "size": 3, "name": "X", "is_static": False}
+            ]
+        },
+        {
+            "title": "Centroid after X iterations",
+            "traces": [
+                {"points": np.random.rand(100, 3), "color": "red", "size": 3, "name": "Xin", "is_static": True},
+                {"points": np.random.rand(50, 3), "color": "blue", "size": 3, "name": "X", "is_static": False}
+            ]
+        },
+        # {
+        #     "title": "Registration of the sets after X iterations",
+        #     "traces": [
+        #         {"points": np.random.rand(100, 3), "color": "green", "size": 3, "name": "Static Trace 2", "is_static": True},
+        #         {"points": np.random.rand(50, 3), "color": "purple", "size": 3, "name": "Dynamic Trace 2", "is_static": False}
+        #     ]
+        # }
+    ]
+    return figures_config
 
 
 def calibrate(data_path, config_file_path, sequence):
@@ -30,7 +75,18 @@ def calibrate(data_path, config_file_path, sequence):
     print(nObs)
 
     print("####### Perform Calibration and Model Generation. ########")
-    X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=100)
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(Xin)
+
+    # get initial figure config
+    figures_config = get_figures_config()
+
+    # initial plot
+    figures_config[0] = get_initial_pcd_figure(V)
+    print(figures_config[0])
+    visualizer = Live3DVisualizerPlotly(figures_config)
+    visualizer.update_dynamic_geometry(1, 0, Xin)
+    X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=50, visualizer=visualizer)
     print(len(TV))
     print(len(AllT))
  

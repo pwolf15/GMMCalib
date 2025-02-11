@@ -3,7 +3,11 @@ transform_sensor_1:
   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0] #[roll, pitch, yaw, x, y z]
 transform_sensor_2:
   - [0.0, 0.0, 0.0, 0.0, 0.0, 0.0] 
+# min_bound:
+#   - [-20,-20,-20]
+# max_bound:
+#   - [20, 20, 20]
 min_bound:
-  - [-20,-10,-5]
+  - [-12,-7, -1.8]
 max_bound:
-  - [0, -2.5, 5]
+  - [-4, 7, -1.2]

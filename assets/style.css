@@ -1,0 +1,17 @@
+/* Grid container: creates a flexible 2-column layout */
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 2 columns */
+  gap: 20px; /* Space between figures */
+  justify-content: center; /* Center the grid */
+  padding: 20px;
+}
+
+/* Grid items: individual figures */
+.grid-item {
+  background: #f9f9f9;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}

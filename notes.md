@@ -33,8 +33,6 @@
 
 # generate PCDs
 * load synthetic data
-
-
 # generate_gt
 * generate/define ground truth
 * compare estimated transformation w/ known values
@@ -42,6 +40,11 @@
 # todo
 
 * the first thing I need to do, is to determine the ROI between the 2 overlapping fields
+/ add visualize option for GMM calib (open3d vs. plotly)
+/ 1. need to isolate problem with data (ROI vs. transformation)
+/ 2. plot registration of sets after n iterations
+/ 3. plot final GMM means (optional plot initial X)
+
 - [X] for set of PCDs, can I plot over time
 - [X] for 2 sets of PCDs, can I plot over time.
 - [ ] can I plot PCD in global space?

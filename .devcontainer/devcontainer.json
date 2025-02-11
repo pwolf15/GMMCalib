@@ -5,7 +5,10 @@
     "workspaceFolder": "/workspace",
     "runArgs": [
       "-v", "${env:SSH_AUTH_SOCK}:/tmp/ssh-agent",
-      "-e", "SSH_AUTH_SOCK=/tmp/ssh-agent"
+      "-e", "SSH_AUTH_SOCK=/tmp/ssh-agent",
+      "--device=/dev/dri:/dev/dri",
+      "-v", "/tmp/.X11-unix:/tmp/.X11-unix",
+      "-e", "$DISPLAY"
     ],
     "settings": {
       "terminal.integrated.defaultProfile.linux": "bash"

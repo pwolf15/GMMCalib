@@ -6,8 +6,8 @@ RUN apt-get update \
         libgomp1 \
         git \
         openssh-client \
-        pkg-config \        # em-gmm example
-        libhdf5-serial-dev  # em-gmm example
+        pkg-config \       
+        libhdf5-serial-dev \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -16,6 +16,7 @@ RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
 
 WORKDIR /app
 COPY . /app
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 8000
 

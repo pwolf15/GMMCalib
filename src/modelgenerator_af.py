@@ -1,22 +1,20 @@
 import arrayfire as af
 import numpy as np
 import open3d as o3d
-
-import arrayfire as af
-import numpy as np
-import open3d as o3d
+from arrayfire import to_array
 
 def af_sse(A, B):
     """Compute the sum of squared errors using ArrayFire (GPU acceleration)."""
-    A_af = af.array(A)
-    B_af = af.array(B)
+    A_af = af.to_array(A.astype(np.float32))  # Ensure float32
+    B_af = af.to_array(B.astype(np.float32))
     diff = A_af - af.tile(B_af, (A_af.dims()[0], 1))
     return af.sum(diff ** 2, dim=0)
 
 def jgmm_af(V, Xin, maxNumIter):
     """Joint GMM Model optimized using ArrayFire for GPU acceleration."""
-    V = [af.array(np.transpose(i)) for i in V]
-    X = af.array(np.transpose(Xin))
+    V = [af.to_array(np.transpose(i)) for i in V]
+    X = af.to_array(np.transpose(Xin))
+
     M = len(V)  # Number of measurements
     dim, K = X.dims()  # Number of centroids
 
@@ -24,11 +22,23 @@ def jgmm_af(V, Xin, maxNumIter):
     R = [af.identity(3, 3) for _ in range(M)]
     t = [af.constant(0, 3) for _ in range(M)]
     
-    TV = [af.matmul(R[i], V[i]) + t[i].reshape(3, 1) for i in range(M)]
+    TV = []
+    for i in range(M):
+        # Debugging Shapes
+        print(f"Shape of R[{i}]:", R[i].dims())
+        print(f"Shape of V[{i}]:", V[i].dims())
+        print(f"Shape of t[{i}]:", t[i].dims())
 
+        # Ensure correct transformation
+        t_reshaped = af.reshape(t[i], 3, 1)
+        t_tiled = af.tile(t_reshaped, (1, V[i].dims()[1]))  # Match the number of points
+
+        TV.append(af.matmul(R[i], V[i]) + t_tiled)
+        
     # Initialize Covariances
-    minXYZ = af.min(af.stack([af.min(TVX, dim=1) for TVX in TV] + [af.min(X, dim=1)], dim=1), dim=1)
-    maxXYZ = af.max(af.stack([af.max(TVX, dim=1) for TVX in TV] + [af.max(X, dim=1)], dim=1), dim=1)
+    minXYZ = af.min(af.join(1, *[af.min(TVX, 1) for TVX in TV], af.min(X, 1)), 1)
+    maxXYZ = af.max(af.join(1, *[af.max(TVX, 1) for TVX in TV], af.max(X, 1)), 1)
+
     Q = af.reciprocal(af_sse(minXYZ, maxXYZ)).reshape(K, 1)
 
     epsilon, gamma = 1e-9, 0.1
@@ -57,8 +67,14 @@ def jgmm_af(V, Xin, maxNumIter):
         R, t = [], []
         for i in range(M):
             U, S, Vt = af.svd(P[i])
-            Ri = af.matmul(U, af.matmul(af.diag([1, 1, af.det(af.matmul(U, Vt.T))]), Vt))
+
+            # Fix determinant issue
+            det_val = af.det(af.matmul(U, Vt.T))
+            diag_matrix = af.diag(af.to_array([1, 1, det_val]))
+
+            Ri = af.matmul(U, af.matmul(diag_matrix, Vt))
             ti = (mX[i] - af.matmul(Ri, mW[i])) / sumOfWeights[i]
+
             R.append(Ri)
             t.append(ti)
 

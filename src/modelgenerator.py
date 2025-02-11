@@ -10,7 +10,7 @@ This code implementation was inpired by G. D. Evangelidis and R. Horaud,
 IEEE Transactions on Pattern Analysis and Machine Intelligence, vol. 40, pp. 1397–1410, June 2018.
 """
 
-def jgmm(V, Xin, maxNumIter):
+def jgmm(V, Xin, maxNumIter, visualizer):
     """Calculate the transformations and jointly align points clouds
     Parameters
     ---------------
@@ -75,7 +75,6 @@ def jgmm(V, Xin, maxNumIter):
     updatePriors = 1
     gamma =  0.1
     pk = 1/(K*(gamma+1))
-
 
     # -------------------------------------------------------------------- #
     #               E    M    A L G O R I T H M                            #
@@ -143,6 +142,12 @@ def jgmm(V, Xin, maxNumIter):
         X = [TV[i].dot(alpha[i]) for i in range(len(TV))] # (M, 3, K) Matrix
         X = np.sum(np.stack(np.asarray(X[:]), axis=0), axis=0)
         X = X/den
+        if X.T.shape[1] != 3:
+            raise ValueError(f"X must be of shape (N, 3), but got {X.T.shape}")
+            
+        # visualizer.dynamic_geometry.points = o3d.utility.Vector3dVector(X.T)
+        visualizer.update_dynamic_geometry(1, 0, X.T)
+        visualizer.update_title(1, f"Centroid after {it+1} iterations")
 
         '''Update Covariances '''
         wnormes = [np.sum(np.multiply(alpha[i], sse(np.asarray(TV[i].astype(np.float64)), np.asarray(X))), axis=0) for i in range(len(TV))]
@@ -151,7 +156,7 @@ def jgmm(V, Xin, maxNumIter):
 
         if updatePriors:
             pk = den / ((gamma+1)*sum(den))
-
+ 
     Q = np.divide(1, Q)
     return X, TV, T, pk
 
