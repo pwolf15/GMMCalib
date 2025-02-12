@@ -1,27 +1,51 @@
-/* Import a Google Font */
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
-
+/* General Styles */
 body {
-  font-family: 'Roboto', sans-serif;
-  /* 🔹 Change font globally */
-  background-color: #f8f9fa;
-  /* 🔥 Light gray background */
-  color: #333;
-  /* 🖤 Dark text for contrast */
+  font-family: Arial, sans-serif;
+  margin: 20px;
+  line-height: 1.5;
 }
 
-h4 {
+/* Button Styles */
+#submit-val {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+#submit-val:hover {
+  background-color: #0056b3;
+}
+
+/* Container Styling */
+#container-button-basic {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 15px;
+}
+
+/* Metadata Styling */
+#live-update-text {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 5px;
+  border-left: 5px solid #007bff;
+  font-size: 16px;
+}
+
+/* Metadata Labels */
+#live-update-text div {
+  margin-bottom: 8px;
   font-weight: bold;
   color: #222;
 }
 
-#status-text {
-  font-size: 20px;
-  color: #007BFF;
-  /* 🔹 Blue color for status text */
-}
-
-/* Grid container: creates a flexible 2-column layout */
+/* Adjust spacing */
 .grid-container {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

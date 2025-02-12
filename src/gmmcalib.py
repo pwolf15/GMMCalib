@@ -123,20 +123,8 @@ def calibrate(data_path, config_file_path, sequence):
     figures_config[0] = get_initial_pcd_figure(V)
     print(figures_config[0])
     transform_sensor_1, transform_sensor_2, min_bound, max_bound, number_of_sensors = read_config(data_path, config_file_path)
-    visualizer = Live3DVisualizerPlotly(figures_config, {
-        "config": config_file_path,
-        "data": data_path,
-        "min_bound": min_bound,
-        "max_bound": max_bound
-    })
-    visualizer.update_dynamic_geometry(1, 0, Xin)
-
-    # X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=50, visualizer=visualizer)
-    # print(len(TV))
-    # print(len(AllT))
- 
-    # Start jgmm() in a separate thread
-    def run_jgmm():
+    
+    def run_jgmm(visualizer):
         """Function to execute jgmm asynchronously."""
         pcds = generatePCDs.generate_data(data_path, config_file_path, sequence)
         Xin = create_gt.create_init_pc(box_size=(0.5, 0.5, 0.5), num_points=400) + np.array([9.8, 4.75, 0.38])
@@ -146,16 +134,25 @@ def calibrate(data_path, config_file_path, sequence):
         X, TV, AllT, pk = jgmm(V=V, Xin=Xin, maxNumIter=50, visualizer=visualizer)
 
         # ✅ After `jgmm` completes, update the visualization
-        visualizer.update_dynamic_geometry(1, 0, Xin)
+        # visualizer.update_dynamic_geometry(1, 0, Xin)
 
         print("####### jgmm completed! ########")
 
-    # ✅ Start `jgmm` in a new thread
-    thread = threading.Thread(target=run_jgmm, daemon=True)
-    thread.start()
+    visualizer = Live3DVisualizerPlotly(figures_config, {
+        "config": config_file_path,
+        "data": data_path,
+        "min_bound": min_bound,
+        "max_bound": max_bound,
+        "transform_sensor_1": transform_sensor_1,
+        "transform_sensor_2": transform_sensor_2,
+        "run_jgmm": run_jgmm,
+        "has_started": False
+    })
+    visualizer.update_dynamic_geometry(1, 0, Xin)
 
-    print("Calibration started in background. Dash UI remains responsive.")
-
+    # X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=50, visualizer=visualizer)
+    # print(len(TV))
+    # print(len(AllT))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run calibration script")

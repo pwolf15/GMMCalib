@@ -42,7 +42,8 @@ class Live3DVisualizerPlotly:
             dcc.Store(id="figures-store", data=self.figures_config),
             dcc.Store(id="camera-store", data={}),
             dcc.Store(id="legend-store", data={}),
-
+            html.Button('Start Calibration', id='submit-val', n_clicks=0),
+            html.Div(id='container-button-basic', children="Click to start calibration"),
             html.Div(id='live-update-text'),
             html.Div([
                 html.Div([
@@ -76,9 +77,29 @@ class Live3DVisualizerPlotly:
             Input('interval-update', 'n_intervals')
         )(self.update_metadata_display)
 
+        self.app.callback(
+            Output('container-button-basic', 'children'),
+            Input('submit-val', 'n_clicks'),
+            prevent_initial_call=True
+        )(self.start_calib)
+
         # Run Dash in a separate thread
         self.thread = threading.Thread(target=self.app.run_server, kwargs={'debug': False, 'use_reloader': False})
         self.thread.start()
+
+    def start_calib(self, n_clicks):
+        if not self.calib_metadata["has_started"]:
+            self.calib_metadata["has_started"] = True
+
+            run_jgmm = self.calib_metadata.get("run_jgmm")
+            if callable(run_jgmm):  # ✅ Ensure it's a function before starting a thread
+                print("Starting calibration in a separate thread...")
+                calib_thread = threading.Thread(target=run_jgmm, args=(self,), daemon=True)
+                calib_thread.start()
+            else:
+                print("Error: 'run_jgmm' function is missing or invalid.")
+
+        return f'Calibration started'
 
     def update_metadata_display(self, n):
         """Dynamically updates Bounding Box ROI, Config File Path, and Data File Path."""
@@ -86,7 +107,9 @@ class Live3DVisualizerPlotly:
         return [
             html.Div(f'Config: {self.calib_metadata["config"]}'),
             html.Div(f'Data: {self.calib_metadata["data"]}'),
-            html.Div(f'ROI: {self.calib_metadata["min_bound"]} -> {self.calib_metadata["max_bound"]}')
+            html.Div(f'ROI: {self.calib_metadata["min_bound"]} -> {self.calib_metadata["max_bound"]}'),
+            html.Div(f'Transform Sensor 1: {self.calib_metadata["transform_sensor_1"]}'),
+            html.Div(f'Transform Sensor 2: {self.calib_metadata["transform_sensor_2"]}')
         ]
 
     def fixed_batch_update(self, n, stored_figures_config, stored_camera):
