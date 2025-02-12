@@ -1,21 +1,25 @@
 {
-    "name": "GMM Calibration Dev Container",
-    "image": "gmmcalib:latest",
-    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
-    "workspaceFolder": "/workspace",
-    "runArgs": [
-      "-v", "${env:SSH_AUTH_SOCK}:/tmp/ssh-agent",
-      "-e", "SSH_AUTH_SOCK=/tmp/ssh-agent",
-      "--device=/dev/dri:/dev/dri",
-      "-v", "/tmp/.X11-unix:/tmp/.X11-unix",
-      "-e", "$DISPLAY"
-    ],
-    "settings": {
-      "terminal.integrated.defaultProfile.linux": "bash"
-    },
-    "extensions": [
-      "ms-vscode-remote.remote-containers"
-    ],
-    "postCreateCommand": "echo 'Dev container ready!'"
-  }
-  
+  "name": "GMM Calibration Dev Container",
+  "image": "gmmcalib:latest",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "workspaceFolder": "/workspace",
+  "runArgs": [
+    "-v",
+    "${env:SSH_AUTH_SOCK}:/tmp/ssh-agent",
+    "-e",
+    "SSH_AUTH_SOCK=/tmp/ssh-agent",
+    // "--net",
+    // "host",
+    // "--device=/dev/dri:/dev/dri",
+    // "-v", "/tmp/.X11-unix:/tmp/.X11-unix",
+    "-e",
+    "DISPLAY=\"127.0.0.1:0\"",
+  ],
+  "settings": {
+    "terminal.integrated.defaultProfile.linux": "bash"
+  },
+  "extensions": [
+    "ms-vscode-remote.remote-containers"
+  ],
+  "postCreateCommand": "echo 'Dev container ready!'"
+}

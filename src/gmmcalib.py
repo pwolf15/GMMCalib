@@ -15,11 +15,49 @@ import pandas as pd
 import open3d as o3d
 from visualizer import Live3DVisualizer
 from visualizer_plotly import Live3DVisualizerPlotly
+import yaml
+import threading
 
-def load_cube_model(file_path):
-    """Load the simulated cube model as a point cloud."""
-    cube_df = pd.read_csv(file_path)
-    return cube_df.to_numpy().T  # Return as (3, N) array for consistency
+def process_results(TV, AllT, V):
+    # create homogeneous transform matrices
+    # these align each point cloud with the GMM model
+    T_1 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2)]
+    T_2 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2, nObs)]
+
+    # relative transform between 1 and 2
+    # inverse brings 2nd point cloud back to common frame
+    print(len(T_1))
+    T_calib = [np.dot(np.linalg.inv(T_2[i]), T_1[i]) for i in range(len(T_1))]
+
+    # average calibration pairs 
+    print(T_calib)
+    T_final = transformPCDs.mean_transform(T_calib)
+    print("Calibration Error: \n")
+    print(T_final)
+    gmmcalib_result = [T_final, X]
+    with open("/app/output/gmmcalib_result.pkl", "wb") as f:
+        pickle.dump(gmmcalib_result, f) 
+
+def run_jgmm_async(visualizer, V, Xin):
+    """Runs jgmm() in a background thread to keep Dash responsive."""
+    X, TV, AllT, pk = jgmm(V=V, Xin=Xin, maxNumIter=50, visualizer=visualizer)
+    print("Completed Model Generation")
+
+    # Continue with post-processing
+    process_results(TV, AllT, V)
+
+def read_config(data_path, config_file_path):
+    # Read the parameters from the YAML file
+    with open(config_file_path, 'r') as file:
+        config_data = yaml.safe_load(file)
+
+    transform_sensor_1 = config_data.get("transform_sensor_1", "")[0]
+    transform_sensor_2 = config_data.get("transform_sensor_2", "")[0]
+    min_bound = config_data.get("min_bound", "")[0]
+    max_bound = config_data.get("max_bound", "")[0]
+    number_of_sensors = config_data.get("number_of_sensors", "")
+
+    return transform_sensor_1, transform_sensor_2, min_bound, max_bound, number_of_sensors
 
 def get_initial_pcd_figure(pcds_vf):
     num_steps = len(pcds_vf) // 2 # number of time steps
@@ -84,30 +122,40 @@ def calibrate(data_path, config_file_path, sequence):
     # initial plot
     figures_config[0] = get_initial_pcd_figure(V)
     print(figures_config[0])
-    visualizer = Live3DVisualizerPlotly(figures_config)
+    transform_sensor_1, transform_sensor_2, min_bound, max_bound, number_of_sensors = read_config(data_path, config_file_path)
+    visualizer = Live3DVisualizerPlotly(figures_config, {
+        "config": config_file_path,
+        "data": data_path,
+        "min_bound": min_bound,
+        "max_bound": max_bound
+    })
     visualizer.update_dynamic_geometry(1, 0, Xin)
-    X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=50, visualizer=visualizer)
-    print(len(TV))
-    print(len(AllT))
+
+    # X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=50, visualizer=visualizer)
+    # print(len(TV))
+    # print(len(AllT))
  
-    # create homogeneous transform matrices
-    # these align each point cloud with the GMM model
-    T_1 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2)]
-    T_2 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2, nObs)]
+    # Start jgmm() in a separate thread
+    def run_jgmm():
+        """Function to execute jgmm asynchronously."""
+        pcds = generatePCDs.generate_data(data_path, config_file_path, sequence)
+        Xin = create_gt.create_init_pc(box_size=(0.5, 0.5, 0.5), num_points=400) + np.array([9.8, 4.75, 0.38])
+        V = [np.array(cloud.points) for cloud in pcds]
 
-    # relative transform between 1 and 2
-    # inverse brings 2nd point cloud back to common frame
-    print(len(T_1))
-    T_calib = [np.dot(np.linalg.inv(T_2[i]), T_1[i]) for i in range(len(T_1))]
+        print("####### Running jgmm in separate thread... ########")
+        X, TV, AllT, pk = jgmm(V=V, Xin=Xin, maxNumIter=50, visualizer=visualizer)
 
-    # average calibration pairs 
-    print(T_calib)
-    T_final = transformPCDs.mean_transform(T_calib)
-    print("Calibration Error: \n")
-    print(T_final)
-    gmmcalib_result = [T_final, X]
-    with open("/app/output/gmmcalib_result.pkl", "wb") as f:
-        pickle.dump(gmmcalib_result, f) 
+        # ✅ After `jgmm` completes, update the visualization
+        visualizer.update_dynamic_geometry(1, 0, Xin)
+
+        print("####### jgmm completed! ########")
+
+    # ✅ Start `jgmm` in a new thread
+    thread = threading.Thread(target=run_jgmm, daemon=True)
+    thread.start()
+
+    print("Calibration started in background. Dash UI remains responsive.")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run calibration script")
@@ -120,6 +168,7 @@ if __name__ == "__main__":
     data_path = os.path.abspath(os.path.join(os.path.dirname(__file__), args.data_path))
     config_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), args.config_file_path))
 
+    print(f'Config path: {config_file_path}')
     if args.sequence is None:
         sequence = list(range(1, len(os.listdir(str(data_path+"/sensor_1"))) + 1))
     else:

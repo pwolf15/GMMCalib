@@ -3,3 +3,6 @@ cube_data
 data
 my-venv
 arrayfire
+point_clouds_overlap
+.ipynb_checkpoints
+.DS_Store

@@ -4,9 +4,11 @@ import plotly.graph_objects as go
 import numpy as np
 import threading
 import time
+from dash.exceptions import PreventUpdate
+from dash import callback_context
 
 class Live3DVisualizerPlotly:
-    def __init__(self, figures_config):
+    def __init__(self, figures_config, calib_metadata):
         """
         Initializes a live 3D visualizer using Dash & Plotly with multiple configurable figures.
         
@@ -20,6 +22,7 @@ class Live3DVisualizerPlotly:
                 - `"name"`: Trace name
                 - `"is_static"`: True for static traces, False for dynamic traces
         """
+        self.calib_metadata = calib_metadata
         self.figures_config = figures_config
         self.camera_views = [None] * len(figures_config)  # Store camera settings for each figure
         self.titles = [fig["title"] for fig in figures_config]  # Store dynamic titles
@@ -39,7 +42,8 @@ class Live3DVisualizerPlotly:
             dcc.Store(id="figures-store", data=self.figures_config),
             dcc.Store(id="camera-store", data={}),
             dcc.Store(id="legend-store", data={}),
-            
+
+            html.Div(id='live-update-text'),
             html.Div([
                 html.Div([
                     html.H4(id=f"figure-title-{i}", children=fig["title"], style={"text-align": "center"}),
@@ -59,25 +63,36 @@ class Live3DVisualizerPlotly:
         #     )(self._update_plot(i))
         # Register a single batch callback for all figures
         self.app.callback(
-          [Output(f"live-3d-plot-{i}", "figure") for i in range(len(self.figures_config))] +
-          [Output(f"figure-title-{i}", "children") for i in range(len(self.figures_config))] +
-          [Output("figures-store", "data"), Output("camera-store", "data"), Output("legend-store", "data")],
-          Input("interval-update", "n_intervals"),
-          State("figures-store", "data"),
-          State("camera-store", "data"),
-          State("legend-store", "data")
-        )(self.batch_update)
+            [Output(f"live-3d-plot-{i}", "figure") for i in range(len(self.figures_config))] +
+            [Output(f"figure-title-{i}", "children") for i in range(len(self.figures_config))] +
+            [Output("figures-store", "data"), Output("camera-store", "data")],
+            Input("interval-update", "n_intervals"),
+            State("figures-store", "data"),
+            State("camera-store", "data")
+        )(self.fixed_batch_update)
+
+        self.app.callback(
+            Output('live-update-text', 'children'),
+            Input('interval-update', 'n_intervals')
+        )(self.update_metadata_display)
 
         # Run Dash in a separate thread
         self.thread = threading.Thread(target=self.app.run_server, kwargs={'debug': False, 'use_reloader': False})
         self.thread.start()
 
-    def batch_update(self, n, stored_figures_config, stored_camera, stored_legend):
-        """Efficiently updates all figures while preserving camera view & trace state."""
+    def update_metadata_display(self, n):
+        """Dynamically updates Bounding Box ROI, Config File Path, and Data File Path."""
+
+        return [
+            html.Div(f'Config: {self.calib_metadata["config"]}'),
+            html.Div(f'Data: {self.calib_metadata["data"]}'),
+            html.Div(f'ROI: {self.calib_metadata["min_bound"]} -> {self.calib_metadata["max_bound"]}')
+        ]
+
+    def fixed_batch_update(self, n, stored_figures_config, stored_camera):
+        """Efficiently updates all figures while preserving UI state via uirevision."""
         updated_figures = []
         updated_titles = []
-        new_camera = {}
-        new_legend = {}
 
         for i, fig in enumerate(self.figures_config):
             figure = go.Figure()
@@ -94,23 +109,31 @@ class Live3DVisualizerPlotly:
                     name=trace["name"]
                 ))
 
-            # 🔹 Preserve Camera Settings
-            if str(i) in stored_camera:
-                figure.update_layout(scene_camera=stored_camera[str(i)])
+            camera_settings = stored_camera.get(str(i), None)
 
-            # 🔹 Preserve Trace Visibility
-            if str(i) in stored_legend:
-                for j, trace in enumerate(figure.data):
-                    trace.visible = stored_legend[str(i)].get(str(j), True)
-
-            # 🔹 Store camera & legend state for next update
-            new_camera[str(i)] = figure.layout.scene.camera
-            new_legend[str(i)] = {str(j): trace.visible for j, trace in enumerate(figure.data)}
+            # 🔹 Apply `uirevision` to persist UI settings
+            figure.update_layout(
+                scene=dict(
+                    xaxis=dict(visible=True),
+                    yaxis=dict(visible=True),
+                    zaxis=dict(visible=True),
+                    camera=camera_settings if camera_settings else dict()  # Restore camera if available
+                ),
+                uirevision=f"view-{i}",  # 🚀 Ensures consistent figure state
+                margin=dict(l=0, r=0, t=0, b=0),
+                legend=dict(
+                    y=0.75,  # 🔥 Moves the legend downward
+                    x=1.1,  # Center the legend horizontally
+                    xanchor="center",
+                    yanchor="top"
+                ),
+            )
 
             updated_figures.append(figure)
             updated_titles.append(self.titles[i])
 
-        return updated_figures + updated_titles + [stored_figures_config, new_camera, new_legend]
+        return updated_figures + updated_titles + [stored_figures_config, stored_camera]
+
       
     # def _update_plot(self, fig_index):
     #     """ Returns a callback function for updating a specific figure and its title. """
