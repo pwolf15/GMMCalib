@@ -21,7 +21,13 @@ def generate_data(data_path, config_file_path, sequence):
     pcds = []
     for sensor in sensors:
         for frame in range(sequence[0], sequence[-1]+1):
-            pcd = o3d.io.read_point_cloud(sensor + str(frame) + ".pcd")
+            pcd_raw = o3d.io.read_point_cloud(sensor + str(frame) + ".pcd")
+            pcd = pcd_raw
+            # carla transform
+            # iso_points = np.asarray(pcd_raw.points)
+            # iso_points[:,:2] = iso_points[:,:2]*-1
+            # pcd = o3d.geometry.PointCloud()
+            # pcd.points = o3d.utility.Vector3dVector(iso_points)
 
             if sensor == sensors[0]:
                 T_g = compute_global_transform(transform_sensor_1[3:], transform_sensor_1[:3])
