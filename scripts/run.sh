@@ -1,2 +1,2 @@
 #!/bin/bash
-python src/gmmcalib.py
+python src/gmmcalib_viz.py
