@@ -47,27 +47,38 @@
 
 - [X] for set of PCDs, can I plot over time
 - [X] for 2 sets of PCDs, can I plot over time.
-- [ ] can I plot PCD in global space?
-    / using transformation from config.yaml seems wrong
-    / can I compute using ICP, are the results improved
-    / plotting without transformation looks better
-- [ ] compute ICP -> compute rotation + translation per sensor pair
-    / does it vary per frame
+- [X] can I plot PCD in global space?
 - [ ] assuming reduced ROI, can I remove the constraint? 
     / does the result (what is the result?) improve
     / calibration vs. not calibration
-- [ ] can I plot the centroids over each frame of optimization?
+- [X] can I plot the centroids over each frame of optimization?
 - CI/CD
-
-
-
-- [ ] can I plot region + ROI
-- [ ] plot before + after ROI (generatePCDs)
-- [ ] set ROI for each point cloud
-    - [ ] you want to plot the globally aligned point clouds 1st
-- [ ] remove code that moves centroid in JRMPC (because this already moves them)
-- [ ] understand output calibration results
+- [X] display final calibration
+- [X] remove code that moves centroid in JRMPC (because this already moves them)
+- [ ] understand output calibration results: 
+    / normal
+    / normal (fix centroids)
+    / cube 
+    / cube (fix centroids)
 - [ ] should receive 0 calibration error
 - [ ] relax code constraints to allow them to move along the plane
 - [ ] read 
 - [ ] really understand the code
+
+/ 2.12
+/ pre-processing code to allow you to select subset of fields
+/ reduce ROI so it only includes cubes
+/ try with and without noise (should do better with noise counter-intuitively)
+/ try with and without moving centroids
+
+100 iterations, cube config
+
+Config: /workspace/config/cube_config.yaml
+Data: /workspace/cube_data
+ROI: [-10, -7, -5] -> [-6, -4, 0]
+Transform Sensor 1: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+Transform Sensor 2: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+Final calibration (T_final): [[ 9.91463413e-01  1.30383242e-01  7.14803838e-04  6.40506252e-01]
+ [-1.30385178e-01  9.91451599e-01  4.84057823e-03 -1.06807078e+00]
+ [-7.75631267e-05 -4.89245604e-03  9.99988029e-01 -2.71920272e-02]
+ [ 0.00000000e+00  0.00000000e+00  0.00000000e+00  1.00000000e+00]]
