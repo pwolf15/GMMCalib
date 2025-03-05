@@ -116,54 +116,57 @@ def calibrate(data_path, config_file_path, sequence):
     pcd.points = o3d.utility.Vector3dVector(Xin)
 
     # get initial figure config
-    figures_config = get_figures_config()
+    visualize = True
+    if visualize:
+        figures_config = get_figures_config()
 
-    # initial plot
-    figures_config[0] = get_initial_pcd_figure(V)
-    print(figures_config[0])
-    transform_sensor_1, transform_sensor_2, min_bound, max_bound, number_of_sensors = read_config(data_path, config_file_path)
-    
-    def run_jgmm(visualizer):
-        """Function to execute jgmm asynchronously."""
-        pcds = generatePCDs.generate_data(data_path, config_file_path, sequence)
-        Xin = create_gt.create_init_pc(box_size=(0.5, 0.5, 0.5), num_points=400) + np.array([9.8, 4.75, 0.38])
-        V = [np.array(cloud.points) for cloud in pcds]
-        nObs = len(V)
+        # initial plot
+        figures_config[0] = get_initial_pcd_figure(V)
+        print(figures_config[0])
+        transform_sensor_1, transform_sensor_2, min_bound, max_bound, number_of_sensors = read_config(data_path, config_file_path)
+        
+        def run_jgmm(visualizer):
+            """Function to execute jgmm asynchronously."""
+            pcds = generatePCDs.generate_data(data_path, config_file_path, sequence)
+            Xin = create_gt.create_init_pc(box_size=(0.5, 0.5, 0.5), num_points=400) + np.array([9.8, 4.75, 0.38])
+            V = [np.array(cloud.points) for cloud in pcds]
+            nObs = len(V)
 
-        print("####### Running jgmm in separate thread... ########")
+            print("####### Running jgmm in separate thread... ########")
+            visualizer.update_dynamic_geometry(1, 0, Xin)
+            visualizer.update_dynamic_geometry(1, 1, Xin)
+            X, TV, AllT, pk = jgmm(V=V, Xin=Xin, maxNumIter=100, visualizer=visualizer)
+
+            T_1 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2)]
+            T_2 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2, nObs)]
+
+            T_calib = [np.dot(np.linalg.inv(T_2[i]), T_1[i]) for i in range(len(T_1))]
+            T_final = transformPCDs.mean_transform(T_calib)
+            print("Calibration Error: \n")
+            print(T_final)
+            visualizer.calib_metadata["T_final"] = T_final
+
+            # ✅ After `jgmm` completes, update the visualization
+            print("####### jgmm completed! ########")
+
+        visualizer = Live3DVisualizerPlotly(figures_config, {
+            "config": config_file_path,
+            "data": data_path,
+            "min_bound": min_bound,
+            "max_bound": max_bound,
+            "transform_sensor_1": transform_sensor_1,
+            "transform_sensor_2": transform_sensor_2,
+            "T_final": {},
+            "run_jgmm": run_jgmm,
+            "has_started": False
+        })
         visualizer.update_dynamic_geometry(1, 0, Xin)
         visualizer.update_dynamic_geometry(1, 1, Xin)
-        X, TV, AllT, pk = jgmm(V=V, Xin=Xin, maxNumIter=100, visualizer=visualizer)
+    else:
 
-        T_1 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2)]
-        T_2 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2, nObs)]
-
-        T_calib = [np.dot(np.linalg.inv(T_2[i]), T_1[i]) for i in range(len(T_1))]
-        T_final = transformPCDs.mean_transform(T_calib)
-        print("Calibration Error: \n")
-        print(T_final)
-        visualizer.calib_metadata["T_final"] = T_final
-
-        # ✅ After `jgmm` completes, update the visualization
-        print("####### jgmm completed! ########")
-
-    visualizer = Live3DVisualizerPlotly(figures_config, {
-        "config": config_file_path,
-        "data": data_path,
-        "min_bound": min_bound,
-        "max_bound": max_bound,
-        "transform_sensor_1": transform_sensor_1,
-        "transform_sensor_2": transform_sensor_2,
-        "T_final": {},
-        "run_jgmm": run_jgmm,
-        "has_started": False
-    })
-    visualizer.update_dynamic_geometry(1, 0, Xin)
-    visualizer.update_dynamic_geometry(1, 1, Xin)
-
-    # X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=50, visualizer=visualizer)
-    # print(len(TV))
-    # print(len(AllT))
+        X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=50)
+        print(len(TV))
+        print(len(AllT))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run calibration script")
