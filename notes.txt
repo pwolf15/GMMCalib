@@ -1,0 +1,10 @@
+/ add additional cube data files
+    / goal: read list of files
+    + specify list of files
+
+
+## feature: 
+/ add ability to dynamically configure ROI
+/ reduce ROI so it only includes cubes
+/ try with and without noise (should do better with noise counter-intuitively)
+/ try with and without moving centroids
