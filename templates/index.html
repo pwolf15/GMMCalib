@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/static/styles.css">
+    <title>3D Point Cloud Viewer</title>
+</head>
+
+<body>
+    <div class="config-container">
+        <h2>Configuration Information</h2>
+        <table id="config-table">
+            <tr>
+                <td><strong>Data Path:</strong></td>
+                <td id="config-data-path"></td>
+            </tr>
+            <tr>
+                <td><strong>Config Path:</strong></td>
+                <td id="config-config-path"></td>
+            </tr>
+            <tr>
+                <td><strong>Transform Sensor 1:</strong></td>
+                <td id="config-sensor1"></td>
+            </tr>
+            <tr>
+                <td><strong>Transform Sensor 2:</strong></td>
+                <td id="config-sensor2"></td>
+            </tr>
+            <tr>
+                <td><strong>Min Bound:</strong></td>
+                <td id="config-min"></td>
+            </tr>
+            <tr>
+                <td><strong>Max Bound:</strong></td>
+                <td id="config-max"></td>
+            </tr>
+            <tr>
+                <td><strong>Number of Sensors:</strong></td>
+                <td id="config-sensors"></td>
+            </tr>
+        </table>
+    </div>
+    <div class="grid-container">
+        <!-- Static Point Cloud -->
+        <div class="grid-item">
+            <div id="static-plot" class="plot-container"></div>
+        </div>
+
+        <!-- Dynamic Point Cloud -->
+        <div class="grid-item">
+            <div id="dynamic-plot" class="plot-container"></div>
+        </div>
+    </div>
+
+    <script>
+        function createPlot(id, traces, title) {
+            Plotly.newPlot(id, traces, {
+                title: title,
+                responsive: true,
+                useResizeHandler: true,
+            });
+        }
+
+        function resizePlots() {
+            Plotly.Plots.resize('static-plot');
+            Plotly.Plots.resize('dynamic-plot');
+        }
+
+        // ✅ Load Static Point Clouds
+        fetch("http://127.0.0.1:5000/static_data")
+            .then(response => response.json())
+            .then(data => {
+                const traces = [];
+
+                data.forEach(pair => {
+                    // Add first sensor (red)
+                    traces.push({
+                        x: pair.sensor_1.x,
+                        y: pair.sensor_1.y,
+                        z: pair.sensor_1.z,
+                        mode: "markers",
+                        type: "scatter3d",
+                        marker: { size: 3, color: "red" },
+                        name: `Pair ${pair.pair_id} - Sensor 1`
+                    });
+
+                    // Add second sensor (blue)
+                    traces.push({
+                        x: pair.sensor_2.x,
+                        y: pair.sensor_2.y,
+                        z: pair.sensor_2.z,
+                        mode: "markers",
+                        type: "scatter3d",
+                        marker: { size: 3, color: "blue" },
+                        name: `Pair ${pair.pair_id} - Sensor 2`
+                    });
+                });
+
+                Plotly.newPlot("static-plot", traces, {
+                    title: "Initial Point Clouds - Vehicle Frame",
+                    responsive: true
+                });
+            });
+
+        fetch("http://127.0.0.1:5000/initial_calib_data")
+            .then(response => response.json())
+            .then(data => {
+                const traces = [
+                    {
+                        x: data.Xin.x,
+                        y: data.Xin.y,
+                        z: data.Xin.z,
+                        mode: "markers",
+                        type: "scatter3d",
+                        marker: { size: 3, color: "green" },
+                        name: "Xin (Static)"
+                    },
+                    {
+                        x: data.X.x,
+                        y: data.X.y,
+                        z: data.X.z,
+                        mode: "markers",
+                        type: "scatter3d",
+                        marker: { size: 3, color: "orange" },
+                        name: "X"
+                    }
+                ];
+
+                Plotly.newPlot("dynamic-plot", traces, {
+                    title: "Centroids (Xin & X)",
+                    responsive: true
+                });
+            });
+
+        // ✅ WebSocket for Dynamic Updates
+        const ws = new WebSocket("ws://127.0.0.1:5000/ws");
+
+        ws.onmessage = function (event) {
+            const data = JSON.parse(event.data).plot2;
+            console.log('received message')
+
+            const traces = data.map((cloud, index) => ({
+                x: cloud.x,
+                y: cloud.y,
+                z: cloud.z,
+                mode: "markers",
+                type: "scatter3d",
+                marker: { size: 3 },
+                name: `Dynamic Cloud ${index}`
+            }));
+
+            Plotly.react("dynamic-plot", traces, {
+                title: "Centroids (Xin & X)",
+                responsive: true,
+                useResizeHandler: true
+            });
+
+            resizePlots();
+        };
+
+        // ✅ Fetch and Display Configuration Data
+        fetch("http://127.0.0.1:5000/config_data")
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("config-data-path").textContent = data.data_path;
+                document.getElementById("config-config-path").textContent = data.config_file_path;
+                document.getElementById("config-sensor1").textContent = data.transform_sensor_1;
+                document.getElementById("config-sensor2").textContent = data.transform_sensor_2;
+                document.getElementById("config-min").textContent = data.min_bound;
+                document.getElementById("config-max").textContent = data.max_bound;
+                document.getElementById("config-sensors").textContent = data.number_of_sensors;
+            })
+            .catch(error => console.error("Error loading config data:", error));
+
+        // ✅ Resize Plotly when window resizes
+        window.addEventListener("resize", resizePlots);
+    </script>
+</body>
+
+</html>

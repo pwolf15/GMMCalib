@@ -10,7 +10,7 @@ This code implementation was inpired by G. D. Evangelidis and R. Horaud,
 IEEE Transactions on Pattern Analysis and Machine Intelligence, vol. 40, pp. 1397–1410, June 2018.
 """
 
-def jgmm(V, Xin, maxNumIter, visualizer=None, fixCentroids=False):
+def jgmm(V, Xin, maxNumIter, server=None, fixCentroids=False):
     """Calculate the transformations and jointly align points clouds
     Parameters
     ---------------
@@ -148,9 +148,9 @@ def jgmm(V, Xin, maxNumIter, visualizer=None, fixCentroids=False):
         if X.T.shape[1] != 3:
             raise ValueError(f"X must be of shape (N, 3), but got {X.T.shape}")
             
-        if visualizer:
-            visualizer.update_dynamic_geometry(1, 1, X.T)
-            visualizer.update_title(1, f"Centroids after {it+1} iterations")
+        if server:
+            server.update_dynamic_geometry(1, 1, X.T)
+            # visualizer.update_title(1, f"Centroids after {it+1} iterations")
 
         '''Update Covariances '''
         wnormes = [np.sum(np.multiply(alpha[i], sse(np.asarray(TV[i].astype(np.float64)), np.asarray(X))), axis=0) for i in range(len(TV))]

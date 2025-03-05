@@ -6,38 +6,35 @@ import threading
 import time
 from dash.exceptions import PreventUpdate
 from dash import callback_context
+import os
 
 class Live3DVisualizerPlotly:
-    def __init__(self, figures_config, calib_metadata):
+    def __init__(self, figures_config, calibration_metadata):
         """
         Initializes a live 3D visualizer using Dash & Plotly with multiple configurable figures.
-        
-        Parameters:
-        - `figures_config`: A list of dictionaries, each defining a figure with:
-            - `"title"`: Initial title of the figure (can be updated).
-            - `"traces"`: List of trace dictionaries, each containing:
-                - `"points"`: Initial NumPy array (N, 3)
-                - `"color"`: RGB color string (e.g., "red", "blue")
-                - `"size"`: Marker size
-                - `"name"`: Trace name
-                - `"is_static"`: True for static traces, False for dynamic traces
         """
-        self.calib_metadata = calib_metadata
-        self.figures_config = figures_config
-        self.camera_views = [None] * len(figures_config)  # Store camera settings for each figure
-        self.titles = [fig["title"] for fig in figures_config]  # Store dynamic titles
 
-        # Initialize Dash app
-        import os
-        assets_path = os.path.join(os.path.dirname(__file__), "../assets")  # Ensure correct path
+        # contains GMM calib configuration parameters for display
+        self.calibration_metadata = calibration_metadata
+
+        # Plotly figure configuration
+        self.figures_config = figures_config
+
+        # titles for each figure
+        self.titles = [fig["title"] for fig in figures_config] 
+
+        # use CSS from assets folder
+        assets_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../assets"))
+
         self.app = dash.Dash(__name__, assets_folder=assets_path)
 
         # Store traces as a mutable structure (to allow updates)
-        self.dynamic_traces = [
-            [trace["points"] for trace in fig["traces"] if not trace["is_static"]]
+        self.traces = [
+            [trace["points"] for trace in fig["traces"]]
             for fig in figures_config
         ]
 
+        # Plotly dash app layout
         self.app.layout = html.Div([
             dcc.Store(id="figures-store", data=self.figures_config),
             dcc.Store(id="camera-store", data={}),
@@ -47,7 +44,7 @@ class Live3DVisualizerPlotly:
             html.Div(id='live-update-text'),
             html.Div([
                 html.Div([
-                    html.H4(id=f"figure-title-{i}", children=fig["title"], style={"text-align": "center"}),
+                    html.H4(id=f"figure-title-{i}", children=fig["title"]),
                     dcc.Graph(id=f"live-3d-plot-{i}", style={"width": "100%", "height": "400px"})
                 ], className="grid-item") for i, fig in enumerate(self.figures_config)
             ], className="grid-container"),
@@ -55,14 +52,6 @@ class Live3DVisualizerPlotly:
             dcc.Interval(id="interval-update", interval=2000, n_intervals=0)
         ])
 
-        # Create callbacks for each figure
-        # for i in range(len(figures_config)):
-        #     self.app.callback(
-        #         dash.Output(f"live-3d-plot-{i}", "figure"),
-        #         dash.Output(f"figure-title-{i}", "children"),
-        #         [dash.Input("interval-update", "n_intervals")]
-        #     )(self._update_plot(i))
-        # Register a single batch callback for all figures
         self.app.callback(
             [Output(f"live-3d-plot-{i}", "figure") for i in range(len(self.figures_config))] +
             [Output(f"figure-title-{i}", "children") for i in range(len(self.figures_config))] +
@@ -70,26 +59,26 @@ class Live3DVisualizerPlotly:
             Input("interval-update", "n_intervals"),
             State("figures-store", "data"),
             State("camera-store", "data")
-        )(self.fixed_batch_update)
+        )(self.update_plots)
 
-        self.app.callback(
-            Output('live-update-text', 'children'),
-            Input('interval-update', 'n_intervals')
-        )(self.update_metadata_display)
+        # self.app.callback(
+        #     Output('live-update-text', 'children'),
+        #     Input('interval-update', 'n_intervals')
+        # )(self.update_metadata_display)
 
-        self.app.callback(
-            Output('container-button-basic', 'children'),
-            Input('submit-val', 'n_clicks'),
-            prevent_initial_call=True
-        )(self.start_calib)
+        # self.app.callback(
+        #     Output('container-button-basic', 'children'),
+        #     Input('submit-val', 'n_clicks'),
+        #     prevent_initial_call=True
+        # )(self.start_calib)
 
         # Run Dash in a separate thread
-        self.thread = threading.Thread(target=self.app.run_server, kwargs={'debug': False, 'use_reloader': False})
+        self.thread = threading.Thread(target=self.app.run_server, kwargs={'debug': True, 'use_reloader': False})
         self.thread.start()
 
     def start_calib(self, n_clicks):
-        if not self.calib_metadata["has_started"]:
-            self.calib_metadata["has_started"] = True
+        if not self.calibration_metadata["has_started"]:
+            self.calibration_metadata["has_started"] = True
 
             run_jgmm = self.calib_metadata.get("run_jgmm")
             if callable(run_jgmm):  # ✅ Ensure it's a function before starting a thread
@@ -112,26 +101,25 @@ class Live3DVisualizerPlotly:
             html.Div(f'Transform Sensor 2: {self.calib_metadata["transform_sensor_2"]}')
         ]
 
-    def fixed_batch_update(self, n, stored_figures_config, stored_camera):
-        """Efficiently updates all figures while preserving UI state via uirevision."""
+    def update_plots(self, n, stored_figures_config, stored_camera):
+
         updated_figures = []
         updated_titles = []
 
         for i, fig in enumerate(self.figures_config):
+
             figure = go.Figure()
 
+            # create new trace for each existing trace
             for trace in fig["traces"]:
                 points = trace["points"]
-                if not trace["is_static"]:
-                    points = self.dynamic_traces[i].pop(0)  # Get updated points
-                    self.dynamic_traces[i].append(points)  # Cycle back
-
                 figure.add_trace(go.Scatter3d(
                     x=points[:, 0], y=points[:, 1], z=points[:, 2],
                     mode="markers", marker=dict(color=trace["color"], size=trace["size"]),
                     name=trace["name"]
                 ))
 
+            # Restore camera settings if available
             camera_settings = stored_camera.get(str(i), None)
 
             # 🔹 Apply `uirevision` to persist UI settings
@@ -140,57 +128,16 @@ class Live3DVisualizerPlotly:
                     xaxis=dict(visible=True),
                     yaxis=dict(visible=True),
                     zaxis=dict(visible=True),
-                    camera=camera_settings if camera_settings else dict()  # Restore camera if available
+                    camera=camera_settings if camera_settings else {}
                 ),
-                uirevision=f"view-{i}",  # 🚀 Ensures consistent figure state
+                uirevision=f"constant",  # 🚀 Ensures consistent figure state
                 margin=dict(l=0, r=0, t=0, b=0),
-                legend=dict(
-                    y=0.75,  # 🔥 Moves the legend downward
-                    x=1.1,  # Center the legend horizontally
-                    xanchor="center",
-                    yanchor="top"
-                ),
             )
 
             updated_figures.append(figure)
             updated_titles.append(self.titles[i])
 
         return updated_figures + updated_titles + [stored_figures_config, stored_camera]
-
-      
-    # def _update_plot(self, fig_index):
-    #     """ Returns a callback function for updating a specific figure and its title. """
-    #     def update(n):
-    #         fig = go.Figure()
-
-    #         for trace in self.figures_config[fig_index]["traces"]:
-    #             points = trace["points"]
-                
-    #             # Update only dynamic traces
-    #             if not trace["is_static"]:
-    #                 points = self.dynamic_traces[fig_index].pop(0)  # Get latest dynamic points
-    #                 self.dynamic_traces[fig_index].append(points)  # Recycle for next update
-
-    #             fig.add_trace(go.Scatter3d(
-    #                 x=points[:, 0], y=points[:, 1], z=points[:, 2],
-    #                 mode="markers", marker=dict(color=trace["color"], size=trace["size"]),
-    #                 name=trace["name"]
-    #             ))
-
-    #         # Preserve camera settings
-    #         if self.camera_views[fig_index]:
-    #             fig.update_layout(scene_camera=self.camera_views[fig_index])
-
-    #         # Default layout settings
-    #         fig.update_layout(
-    #             scene=dict(xaxis=dict(visible=True), yaxis=dict(visible=True), zaxis=dict(visible=True)),
-    #             margin=dict(l=0, r=0, t=0, b=0),
-    #             width=600, height=400,
-    #         )
-
-    #         return fig, self.titles[fig_index]  # Return updated figure and title
-
-    #     return update  # Return the callback function
 
     def update_dynamic_geometry(self, fig_index, trace_index, new_points):
         """
@@ -201,7 +148,7 @@ class Live3DVisualizerPlotly:
         - `trace_index`: Index of the trace within the figure (0-based).
         - `new_points`: New (N,3) NumPy array of updated points.
         """
-        self.dynamic_traces[fig_index][trace_index] = new_points
+        # self.dynamic_traces[fig_index][trace_index] = new_points
 
     def update_title(self, fig_index, new_title):
         """
@@ -211,35 +158,34 @@ class Live3DVisualizerPlotly:
         - `fig_index`: Index of the figure (0-based).
         - `new_title`: The new title to set.
         """
-        self.titles[fig_index] = new_title  # Update the title
+        # self.titles[fig_index] = new_title  # Update the title
         print(f"Updated title for Figure {fig_index}: {new_title}")
 
     def close(self):
         """Stops the visualization (not implemented due to Dash limitations)."""
         print("Dash server is running; close browser manually.")
 
-# ✅ Example Usage
 if __name__ == "__main__":
     # Define figures with configurable traces and titles
     figures_config = [
         {
             "title": "First 3D Figure",
             "traces": [
-                {"points": np.random.rand(100, 3), "color": "red", "size": 3, "name": "Static Trace", "is_static": True},
-                {"points": np.random.rand(50, 3), "color": "blue", "size": 3, "name": "Dynamic Trace", "is_static": False}
+                {"points": np.random.rand(100, 3), "color": "red", "size": 3, "name": "Static Trace"},
+                {"points": np.random.rand(50, 3), "color": "blue", "size": 3, "name": "Dynamic Trace"}
             ]
         },
         {
             "title": "Second 3D Figure",
             "traces": [
-                {"points": np.random.rand(100, 3), "color": "green", "size": 3, "name": "Static Trace 2", "is_static": True},
-                {"points": np.random.rand(50, 3), "color": "purple", "size": 3, "name": "Dynamic Trace 2", "is_static": False}
+                {"points": np.random.rand(100, 3), "color": "green", "size": 3, "name": "Static Trace 2"},
+                {"points": np.random.rand(50, 3), "color": "purple", "size": 3, "name": "Dynamic Trace 2"}
             ]
         }
     ]
 
     # Initialize visualizer with multiple figures and titles
-    visualizer = Live3DVisualizerPlotly(figures_config)
+    visualizer = Live3DVisualizerPlotly(figures_config, {})
 
     # Simulate dynamic updates
     for i in range(50):
