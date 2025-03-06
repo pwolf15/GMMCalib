@@ -147,11 +147,13 @@
 
         // initial point cloud positions
         socket.on('initial_positions', (data) => {
-            console.log('Received initial positions');
+            console.log('Received initial positions:', data);
 
             const sensors = data.sensors;
             const numObs = data.num_obs;
             const pcdList = data.pcd_list;
+            console.log("sensors", sensors);
+            console.log("num obs", numObs);
 
             const colorMap = ["red", "blue", "green", "orange", "purple", "cyan"];
             const sensorColors = {};
@@ -159,28 +161,69 @@
                 sensorColors[sensor] = colorMap[index % colorMap.length];
             });
 
-            const traces = pcdList.map((pcd, idx) => {
-                const points = pcd.points;
-                const sensorId = Math.floor(idx / numObs);
-                console.log(sensorId);
-                const color = sensorColors[sensorId] || "blue";
+            // ✅ Organize traces correctly
+            const allTraces = [];
+            for (let sensorIdx = 0; sensorIdx < sensors.length; sensorIdx++) {
+                for (let obsIdx = 0; obsIdx < numObs; obsIdx++) {
+                    const pcd = pcdList[obsIdx + sensorIdx * numObs];  // ✅ Correct indexing
 
-                return {
-                    x: points.map(p => p[0]),
-                    y: points.map(p => p[1]),
-                    z: points.map(p => p[2]),
-                    mode: "markers",
-                    type: "scatter3d",
-                    marker: { size: 3, color: color },
-                    name: pcd.file
+                    console.log(`adding ${obsIdx + sensorIdx * numObs}, sensor ${sensorIdx}, obsIdx ${obsIdx}`)
+
+                    allTraces.push({
+                        x: pcd.points.map(p => p[0]),
+                        y: pcd.points.map(p => p[1]),
+                        z: pcd.points.map(p => p[2]),
+                        mode: "markers",
+                        type: "scatter3d",
+                        marker: { size: 3, color: sensorColors[sensors[sensorIdx]] || "blue" },
+                        name: `Obs ${obsIdx + 1} - Sensor ${sensors[sensorIdx]}`
+                    });
                 }
-            });
+            }
 
-            Plotly.newPlot("init-pos-plot", traces, {
-                title: "Initial position of the point clouds",
-                margin: { l: 0, r: 0, t: 40, b: 0 }
-            })
+            // ✅ Create dropdown menu for observation selection
+            const dropdownOptions = [
+                {
+                    method: "update",
+                    args: [{ visible: Array(allTraces.length).fill(true) }],
+                    label: "All"
+                }
+            ];
+
+            for (let obsIdx = 0; obsIdx < numObs; obsIdx++) {
+                let visibilityArray = Array(allTraces.length).fill(false);
+
+                // ✅ Enable all sensors for a specific observation
+                for (let sensorIdx = 0; sensorIdx < sensors.length; sensorIdx++) {
+                    console.log(`obs: ${obsIdx}, sensor: ${sensorIdx}, idx: ${obsIdx + sensorIdx * numObs}`)
+                    visibilityArray[obsIdx + sensorIdx * numObs] = true;
+                }
+
+                dropdownOptions.push({
+                    method: "update",
+                    args: [{ visible: visibilityArray }],
+                    label: `Observation ${obsIdx + 1}`
+                });
+            }
+
+            const layout = {
+                title: "Initial Position of the Point Clouds",
+                margin: { l: 0, r: 0, t: 40, b: 0 },
+                updatemenus: [
+                    {
+                        buttons: dropdownOptions,
+                        direction: "down",
+                        showactive: true,
+                        x: 0.1,
+                        y: 1.2
+                    }
+                ]
+            };
+
+            // ✅ Initialize the plot with all traces
+            Plotly.newPlot("init-pos-plot", allTraces, layout);
         });
+
 
         socket.on("gmm_means", (data) => {
 
