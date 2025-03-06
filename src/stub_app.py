@@ -11,6 +11,7 @@ if __name__ == '__main__':
     num_sensors = 5
     initial_positions = {}
     initial_positions["sensors"] = []
+    initial_positions["num_obs"] = 1
     initial_positions["pcd_list"] = []
     for sensor in range(0, num_sensors):
         initial_positions["sensors"].append(str(sensor))

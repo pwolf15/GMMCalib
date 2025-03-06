@@ -149,6 +149,7 @@
             console.log('Received initial positions');
 
             const sensors = data.sensors;
+            const numObs = data.num_obs;
             const pcdList = data.pcd_list;
 
             const colorMap = ["red", "blue", "green", "orange", "purple", "cyan"];
@@ -157,9 +158,10 @@
                 sensorColors[sensor] = colorMap[index % colorMap.length];
             });
 
-            const traces = pcdList.map(pcd => {
+            const traces = pcdList.map((pcd, idx) => {
                 const points = pcd.points;
-                const sensorId = pcd.file.split("_")[0];
+                const sensorId = Math.floor(idx / numObs);
+                console.log(sensorId);
                 const color = sensorColors[sensorId] || "blue";
 
                 return {
