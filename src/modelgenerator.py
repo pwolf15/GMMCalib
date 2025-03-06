@@ -4,6 +4,22 @@ import numpy as np
 #########           M O D E L    G E N E R A T I O N     ##########################
 ###################################################################################
 
+def get_registrations(V, nObs):
+
+    num_sensors = 2
+    initial_positions = {}
+    initial_positions["sensors"] = [1,2]
+    initial_positions["num_obs"] = nObs // 2
+    initial_positions["pcd_list"] = []
+    for idx in range(0, nObs):
+        sensor_id = idx // initial_positions["num_obs"] 
+        obs_id = idx % initial_positions["num_obs"] 
+        initial_positions["pcd_list"].append({
+            "file": f'{sensor_id}_{obs_id}',
+            "points": V[idx].T.tolist()
+        })
+    return initial_positions
+
 """
 This code implementation was inpired by G. D. Evangelidis and R. Horaud, 
 “Joint Alignment of Multiple Point Sets with Batch and Incremental Expectation-Maximization,” 
@@ -147,7 +163,11 @@ def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False):
             
         if socket_client:
             # send gmm means
+            print('TV', len(TV))
             socket_client.emit("gmm_means", {"Xin": Xin.tolist(), "X": X.T.tolist(), "num_iter": it+1})
+            registrations = get_registrations(TV, len(TV))
+            registrations["num_iter"] = it+1
+            socket_client.emit("registrations", registrations)
 
         '''Update Covariances '''
         wnormes = [np.sum(np.multiply(alpha[i], sse(np.asarray(TV[i].astype(np.float64)), np.asarray(X))), axis=0) for i in range(len(TV))]

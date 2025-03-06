@@ -36,6 +36,9 @@ if __name__ == '__main__':
     for i in range(0, num_iterations):
         X = np.random.rand(k, 3).tolist()
         client.emit("gmm_means", {"Xin": Xin, "X": X, "num_iter": i+1})
+        positions = initial_positions
+        positions["num_iter"] = i + 1
+        client.emit("registrations", positions)
         time.sleep(0.5)
 
     time.sleep(2)

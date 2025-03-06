@@ -26,6 +26,11 @@ def handle_gmm_means(data):
     print("received gmm means")
     socketio.emit("gmm_means", data)
 
+@socketio.on("registrations")
+def handle_gmm_means(data):
+    print("received registrations")
+    socketio.emit("registrations", data)
+
 @app.route('/')
 def index():
     return render_template('index.html')  # ✅ Serve the front-end page
