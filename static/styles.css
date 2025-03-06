@@ -42,7 +42,7 @@ h1 {
 .plot-container {
   width: 100%;
   flex-grow: 1;
-  height: 350px;
+  height: 500px;
 }
 
 /* Mobile Friendly Adjustments */
