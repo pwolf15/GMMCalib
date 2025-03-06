@@ -10,7 +10,7 @@ app = Flask(__name__,
             template_folder=os.path.join(BASE_DIR, "../templates"), 
             static_folder=os.path.join(BASE_DIR, "../static"))
 
-socketio = SocketIO(app, cors_allowed_origins="*")  # ✅ Enable WebSockets
+socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=100 * 1024 * 1024)  # ✅ Enable WebSockets
 
 @socketio.on("initial_positions")
 def handle_point_cloud(data):
