@@ -22,8 +22,21 @@ if __name__ == '__main__':
         })
     print(initial_positions)
 
-
     client.emit("initial_positions", initial_positions)
+
+    # 2. generate initial GMM positions
+    #   augment them over n frames
+    num_iterations = 100
+    k = 400
+    Xin = np.random.rand(k, 3).tolist()
+    X = Xin
+    client.emit("gmm_means", {"Xin": Xin, "X": X, "num_iter": 0})
+    time.sleep(1)
+
+    for i in range(0, num_iterations):
+        X = np.random.rand(k, 3).tolist()
+        client.emit("gmm_means", {"Xin": Xin, "X": X, "num_iter": i+1})
+        time.sleep(0.5)
 
     time.sleep(2)
 

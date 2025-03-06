@@ -10,7 +10,7 @@ This code implementation was inpired by G. D. Evangelidis and R. Horaud,
 IEEE Transactions on Pattern Analysis and Machine Intelligence, vol. 40, pp. 1397–1410, June 2018.
 """
 
-def jgmm(V, Xin, maxNumIter, server=None, fixCentroids=False):
+def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False):
     """Calculate the transformations and jointly align points clouds
     Parameters
     ---------------
@@ -144,13 +144,10 @@ def jgmm(V, Xin, maxNumIter, server=None, fixCentroids=False):
             X = [TV[i].dot(alpha[i]) for i in range(len(TV))] # (M, 3, K) Matrix
             X = np.sum(np.stack(np.asarray(X[:]), axis=0), axis=0)
             X = X/den
-
-        if X.T.shape[1] != 3:
-            raise ValueError(f"X must be of shape (N, 3), but got {X.T.shape}")
             
-        if server:
-            server.update_dynamic_geometry(1, 1, X.T)
-            # visualizer.update_title(1, f"Centroids after {it+1} iterations")
+        if socket_client:
+            # send gmm means
+            socket_client.emit("gmm_means", {"Xin": Xin.tolist(), "X": X.T.tolist(), "num_iter": it+1})
 
         '''Update Covariances '''
         wnormes = [np.sum(np.multiply(alpha[i], sse(np.asarray(TV[i].astype(np.float64)), np.asarray(X))), axis=0) for i in range(len(TV))]

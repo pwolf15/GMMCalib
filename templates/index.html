@@ -53,7 +53,7 @@
 
         <!-- Dynamic Point Cloud -->
         <div class="grid-item">
-            <div id="dynamic-plot" class="plot-container"></div>
+            <div id="gmm-means-plot" class="plot-container"></div>
         </div>
     </div>
 
@@ -68,7 +68,7 @@
 
         function resizePlots() {
             Plotly.Plots.resize('init-pos-plot');
-            Plotly.Plots.resize('dynamic-plot');
+            Plotly.Plots.resize('gmm-means-plot');
         }
 
         // ✅ Load Static Point Clouds (Pairs of Sensors)
@@ -145,6 +145,7 @@
             console.log("✅ Connected to WebSocket Server!");
         });
 
+        // initial point cloud positions
         socket.on('initial_positions', (data) => {
             console.log('Received initial positions');
 
@@ -181,28 +182,50 @@
             })
         });
 
-        socket.on('point_cloud', function (data) {
-            console.log("📩 Received Dynamic Data Update");
+        socket.on("gmm_means", (data) => {
+
+            console.log("Received GMM Means Update:", data);
+
+            if (!data.X || !data.Xin) {
+                console.warn("Missing X or Xin data.");
+                return;
+            }
+
 
             const traces = [
                 {
-                    x: data.X.x,
-                    y: data.X.y,
-                    z: data.X.z,
+                    x: data.Xin.map(x => x[0]),
+                    y: data.Xin.map(x => x[1]),
+                    z: data.Xin.map(x => x[2]),
+                    mode: "markers",
+                    type: "scatter3d",
+                    marker: { size: 3, color: "green" },
+                    name: "Xin (Initial Points)"
+                },
+                {
+                    x: data.X.map(x => x[0]),
+                    y: data.X.map(x => x[1]),
+                    z: data.X.map(x => x[2]),
                     mode: "markers",
                     type: "scatter3d",
                     marker: { size: 3, color: "orange" },
-                    name: "X (Updated)"
+                    name: "X (Updated Means)"
                 }
             ];
+            // ✅ Fixed Layout with `uirevision`
+            const layout = {
+                title: `GMM Means after ${data.num_iter} iterations: X vs. Xin`,
+                margin: { l: 0, r: 0, t: 40, b: 0 },
+                scene: {
+                    xaxis: { title: "X Axis", showgrid: true },
+                    yaxis: { title: "Y Axis", showgrid: true },
+                    zaxis: { title: "Z Axis", showgrid: true }
+                },
+                uirevision: "constant"  // ✅ Prevents zoom/reset issues on updates
+            };
 
-            Plotly.react("dynamic-plot", traces, {
-                title: "Centroids (Xin & X)",
-                responsive: true,
-                useResizeHandler: true
-            });
-
-            resizePlots();
+            // ✅ Use `Plotly.react()` to update the figure efficiently
+            Plotly.react("gmm-means-plot", traces, layout);
         });
 
         // ✅ Fetch and Display Configuration Data

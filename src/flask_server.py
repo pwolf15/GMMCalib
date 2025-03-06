@@ -21,6 +21,11 @@ def handle_point_cloud(data):
     # ✅ Broadcast to all connected clients
     socketio.emit("initial_positions", data)
 
+@socketio.on("gmm_means")
+def handle_gmm_means(data):
+    print("received gmm means")
+    socketio.emit("gmm_means", data)
+
 @app.route('/')
 def index():
     return render_template('index.html')  # ✅ Serve the front-end page

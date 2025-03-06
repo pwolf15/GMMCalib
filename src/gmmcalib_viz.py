@@ -34,12 +34,16 @@ def calibrate(data_path, config_file_path, sequence):
 
     # create socket client to publish display data
     client = SocketIOClient('http://127.0.0.1:5000')
+
+    # send initial point cloud positions (vehicle frame)
     initial_positions = get_initial_positions(V, nObs)
     client.emit("initial_positions", initial_positions)
 
-    print("####### Perform Calibration and Model Generation. ########")
-    X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=100)
+    # send initial gmm means
+    client.emit("gmm_means", {"Xin": Xin.tolist(), "X": Xin.tolist(), "num_iter": 0})
 
+    print("####### Perform Calibration and Model Generation. ########")
+    X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=100, socket_client=client)
  
     T_1 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2)]
     T_2 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2, nObs)]
