@@ -12,6 +12,10 @@ transform_sensor_2:
 # max_bound:
 #   - [0, 15, 0]
 min_bound:
-  - [9,4,0]
+  - [9.75,4.75,0]
 max_bound:
-  - [11,5.5,50]
+  - [10.25,5.5,50]
+is_cube_data: 1
+use_noise: 0
+use_carla_transform: 1
+
