@@ -77,9 +77,16 @@
         }
 
         function resizePlots() {
-            Plotly.Plots.resize('init-pos-plot');
-            Plotly.Plots.resize('gmm-means-plot');
+            // const gridItems = document.querySelectorAll(".grid-item");
+
+            // gridItems.forEach(item => {
+            //     item.style.height = `${window.innerHeight * 0.8}px`; // Adjust height dynamically
+            // });
+
+            // Plotly.relayout("init-pos-plot", { width: window.innerWidth / 2, height: window.innerHeight * 0.8 });
+            // Plotly.relayout("gmm-means-plot", { width: window.innerWidth / 2, height: window.innerHeight * 0.8 });
         }
+
 
         // ✅ Load Static Point Clouds (Pairs of Sensors)
         // fetch("http://127.0.0.1:5000/static_data")
@@ -95,7 +102,7 @@
         //                 z: pair.sensor_1.z,
         //                 mode: "markers",
         //                 type: "scatter3d",
-        //                 marker: { size: 3, color: "red" },
+        //                 marker: { size: 2, color: "red" },
         //                 name: `Pair ${pair.pair_id} - Sensor 1`
         //             });
 
@@ -106,7 +113,7 @@
         //                 z: pair.sensor_2.z,
         //                 mode: "markers",
         //                 type: "scatter3d",
-        //                 marker: { size: 3, color: "blue" },
+        //                 marker: { size: 2, color: "blue" },
         //                 name: `Pair ${pair.pair_id} - Sensor 2`
         //             });
         //         });
@@ -128,7 +135,7 @@
         //                 z: data.Xin.z,
         //                 mode: "markers",
         //                 type: "scatter3d",
-        //                 marker: { size: 3, color: "green" },
+        //                 marker: { size: 2, color: "green" },
         //                 name: "Xin (Static)"
         //             },
         //             {
@@ -137,7 +144,7 @@
         //                 z: data.X.z,
         //                 mode: "markers",
         //                 type: "scatter3d",
-        //                 marker: { size: 3, color: "orange" },
+        //                 marker: { size: 2, color: "orange" },
         //                 name: "X"
         //             }
         //         ];
@@ -185,7 +192,7 @@
                         z: pcd.points.map(p => p[2]),
                         mode: "markers",
                         type: "scatter3d",
-                        marker: { size: 3, color: sensorColors[sensors[sensorIdx]] || "blue" },
+                        marker: { size: 2, color: sensorColors[sensors[sensorIdx]] || "blue" },
                         name: `Obs ${obsIdx + 1} - Sensor ${sensors[sensorIdx]}`,
                         visible: !obsIdx
                     });
@@ -218,7 +225,13 @@
             }
 
             const layout = {
-                margin: { l: 0, r: 0, t: 40, b: 0 },
+                margin: { l: 0, r: 0, t: 20, b: 0 },
+                scene: {
+                    aspectmode: "data",
+                    xaxis: { showgrid: true, zeroline: true, title: "X" },
+                    yaxis: { showgrid: true, zeroline: true, title: "Y" },
+                    zaxis: { showgrid: true, zeroline: true, title: "Z" }
+                },
                 title: {
                     text: "Initial Position of the Point Clouds",
                     font: {
@@ -227,18 +240,24 @@
                 },
                 font: {
                     family: 'Courier New, monospace',
-
                     color: '#000000'
                 },
-                updatemenus: [
-                    {
-                        buttons: dropdownOptions,
-                        direction: "down",
-                        showactive: true,
-                        x: 0.1,
-                        y: 1.2
-                    }
-                ]
+                updatemenus: [{
+                    buttons: dropdownOptions,
+                    direction: "down",
+                    showactive: true,
+                    active: 1,
+                    x: 0,
+                    y: 1.15,  // Move closer to the plot
+                    xanchor: "left",
+                    yanchor: "top",
+                    font: {
+                        size: 10  // ✅ Reduce font size
+                    },
+                    bgcolor: "rgba(255,255,255,0.7)",  // ✅ Optional: Make background semi-transparent
+                    borderwidth: 1,
+                    bordercolor: "gray",
+                }]
             };
 
             // ✅ Initialize the plot with all traces
@@ -274,7 +293,7 @@
                         z: pcd.points.map(p => p[2]),
                         mode: "markers",
                         type: "scatter3d",
-                        marker: { size: 3, color: sensorColors[sensors[sensorIdx]] || "blue" },
+                        marker: { size: 2, color: sensorColors[sensors[sensorIdx]] || "blue" },
                         name: `Obs ${obsIdx + 1} - Sensor ${sensors[sensorIdx]}`,
                         visible: !obsIdx
                     });
@@ -308,7 +327,13 @@
             }
 
             const layout = {
-                margin: { l: 0, r: 0, t: 40, b: 0 },
+                margin: { l: 0, r: 0, t: 0, b: 0 },
+                scene: {
+                    aspectmode: "data",
+                    xaxis: { showgrid: true, zeroline: true, title: "X" },
+                    yaxis: { showgrid: true, zeroline: true, title: "Y" },
+                    zaxis: { showgrid: true, zeroline: true, title: "Z" }
+                },
                 title: {
                     text: `Registration after ${data.num_iter} iterations`,
                     font: {
@@ -317,18 +342,24 @@
                 },
                 font: {
                     family: 'Courier New, monospace',
-
                     color: '#000000'
                 },
-                updatemenus: [
-                    {
-                        buttons: dropdownOptions,
-                        direction: "down",
-                        showactive: true,
-                        x: 0.1,
-                        y: 1.2
-                    }
-                ]
+                updatemenus: [{
+                    buttons: dropdownOptions,
+                    direction: "down",
+                    showactive: true,
+                    active: 1,
+                    x: 0,
+                    y: 1.15,  // Move closer to the plot
+                    xanchor: "left",
+                    yanchor: "top",
+                    font: {
+                        size: 10  // ✅ Reduce font size
+                    },
+                    bgcolor: "rgba(255,255,255,0.7)",  // ✅ Optional: Make background semi-transparent
+                    borderwidth: 1,
+                    bordercolor: "gray",
+                }]
             };
 
             // ✅ Initialize the plot with all traces
@@ -353,7 +384,7 @@
                     z: data.Xin.map(x => x[2]),
                     mode: "markers",
                     type: "scatter3d",
-                    marker: { size: 3, color: "green" },
+                    marker: { size: 2, color: "green" },
                     name: "Xin (Initial Points)"
                 },
                 {
@@ -362,17 +393,18 @@
                     z: data.X.map(x => x[2]),
                     mode: "markers",
                     type: "scatter3d",
-                    marker: { size: 3, color: "orange" },
+                    marker: { size: 2, color: "orange" },
                     name: "X (Updated Means)"
                 }
             ];
             // ✅ Fixed Layout with `uirevision`
             const layout = {
-                margin: { l: 0, r: 0, t: 40, b: 0 },
+                margin: { l: 0, r: 0, t: 20, b: 0 },
                 scene: {
-                    xaxis: { title: "X Axis", showgrid: true },
-                    yaxis: { title: "Y Axis", showgrid: true },
-                    zaxis: { title: "Z Axis", showgrid: true }
+                    aspectmode: "data",
+                    xaxis: { showgrid: true, zeroline: true, title: "X" },
+                    yaxis: { showgrid: true, zeroline: true, title: "Y" },
+                    zaxis: { showgrid: true, zeroline: true, title: "Z" }
                 },
                 title: {
                     text: `GMM Means after ${data.num_iter} iterations: X vs. Xin`,

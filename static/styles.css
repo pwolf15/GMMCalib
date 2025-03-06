@@ -10,48 +10,48 @@ body {
 /* Main Title */
 h1 {
   color: #333;
-  margin-bottom: 20px;
+  margin: 10px 0;
+  font-size: 20px;
 }
 
 /* Grid Layout for the Plots */
 .grid-container {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  /* Two equal columns */
-  gap: 20px;
+  gap: 10px;
   justify-content: center;
-  padding: 20px;
-  width: 100%;
-  max-width: 1200px;
-  /* Prevents stretching on large screens */
+  padding: 0px;
+  max-width: 100%;
   margin: auto;
 }
 
 /* Grid items: individual figures */
 .grid-item {
   background: white;
-  padding: 10px;
-  border-radius: 10px;
-  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.1);
   text-align: center;
-  width: 100%;
-  /* Ensures full width in grid */
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-width: 300px;
 }
 
 /* Ensure Plotly Plots Take Full Grid Size */
 .plot-container {
   width: 100%;
   flex-grow: 1;
-  height: 300px;
+  height: 350px;
 }
 
 /* Mobile Friendly Adjustments */
 @media (max-width: 768px) {
   .grid-container {
     grid-template-columns: 1fr;
-    /* Single column on small screens */
+  }
+
+  .plot-container {
+    height: 220px;
   }
 }
