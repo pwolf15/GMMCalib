@@ -4,12 +4,11 @@ import numpy as np
 #########           M O D E L    G E N E R A T I O N     ##########################
 ###################################################################################
 
-def get_registrations(V, nObs):
+def get_registrations(V, nObs, num_sensors):
 
-    num_sensors = 2
     initial_positions = {}
-    initial_positions["sensors"] = [1,2]
-    initial_positions["num_obs"] = nObs // 2
+    initial_positions["sensors"] = list(range(1, num_sensors + 1))
+    initial_positions["num_obs"] = nObs // num_sensors
     initial_positions["pcd_list"] = []
     for idx in range(0, nObs):
         sensor_id = idx // initial_positions["num_obs"] 
@@ -26,7 +25,7 @@ This code implementation was inpired by G. D. Evangelidis and R. Horaud,
 IEEE Transactions on Pattern Analysis and Machine Intelligence, vol. 40, pp. 1397–1410, June 2018.
 """
 
-def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False):
+def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False, num_sensors=2):
     """Calculate the transformations and jointly align points clouds
     Parameters
     ---------------
@@ -165,7 +164,7 @@ def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False):
             # send gmm means
             print('TV', len(TV))
             socket_client.emit("gmm_means", {"Xin": Xin.tolist(), "X": X.T.tolist(), "num_iter": it+1})
-            registrations = get_registrations(TV, len(TV))
+            registrations = get_registrations(TV, len(TV), num_sensors)
             registrations["num_iter"] = it+1
             socket_client.emit("registrations", registrations)
 
