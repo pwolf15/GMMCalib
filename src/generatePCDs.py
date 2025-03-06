@@ -55,8 +55,8 @@ def generate_data(data_path, config_file_path, sequence):
 
                 pcd.transform(T_g)
                 # Crop 
-                # roi = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
-                pcds.append(pcd)
+                roi = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
+                pcds.append(pcd.crop(roi))
             idx += 1
     else:
         sensor_idx = 0
