@@ -186,7 +186,8 @@
                         mode: "markers",
                         type: "scatter3d",
                         marker: { size: 3, color: sensorColors[sensors[sensorIdx]] || "blue" },
-                        name: `Obs ${obsIdx + 1} - Sensor ${sensors[sensorIdx]}`
+                        name: `Obs ${obsIdx + 1} - Sensor ${sensors[sensorIdx]}`,
+                        visible: !obsIdx
                     });
                 }
             }
@@ -274,7 +275,8 @@
                         mode: "markers",
                         type: "scatter3d",
                         marker: { size: 3, color: sensorColors[sensors[sensorIdx]] || "blue" },
-                        name: `Obs ${obsIdx + 1} - Sensor ${sensors[sensorIdx]}`
+                        name: `Obs ${obsIdx + 1} - Sensor ${sensors[sensorIdx]}`,
+                        visible: !obsIdx
                     });
                 }
             }
