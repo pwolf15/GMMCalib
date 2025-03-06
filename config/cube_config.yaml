@@ -16,6 +16,6 @@ min_bound:
 max_bound:
   - [10.25,5.5,50]
 is_cube_data: 1
-use_noise: 0
+use_noise: 1
 use_carla_transform: 1
 
