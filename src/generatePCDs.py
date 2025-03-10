@@ -60,14 +60,45 @@ def generate_data(data_path, config_file_path, sequence):
             idx += 1
     else:
         sensor_idx = 0
+        skipped_indices = []
         for sensor in sensors:
             sensor_id = int(sensor[-2])
             prefix = 'frontleft' if sensor_id == 1 else 'frontright'
             prefix += 'withnoise' if use_noise else 'nonoise'
             for idx in range(sequence[0], sequence[-1] + 1):
+
                 filename = f'{data_path}/{idx}_{prefix}.pcd'
                 pcd_raw = o3d.io.read_point_cloud(filename)
                 pcd = pcd_raw
+                print(filename)
+
+                if len(pcd_raw.points) == 0:
+                    print(f'warning: {filename} has 0 points')
+                    skipped_indices.append(idx)
+
+            sensor_idx += 1
+
+        print('skipped indices: ', skipped_indices)
+
+        sensor_idx = 0
+        for sensor in sensors:
+            sensor_id = int(sensor[-2])
+            prefix = 'frontleft' if sensor_id == 1 else 'frontright'
+            prefix += 'withnoise' if use_noise else 'nonoise'
+
+            # check empty
+            for idx in range(sequence[0], sequence[-1] + 1):
+
+                if idx in skipped_indices:
+                    continue
+
+                filename = f'{data_path}/{idx}_{prefix}.pcd'
+                pcd_raw = o3d.io.read_point_cloud(filename)
+                pcd = pcd_raw
+                print(filename)
+
+                if len(pcd_raw.points) == 0:
+                    print(f'warning: {filename} has 0 points')
 
 
                 # carla transform
@@ -86,7 +117,9 @@ def generate_data(data_path, config_file_path, sequence):
                 # Crop 
                 roi = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
                 pcds.append(pcd.crop(roi))
+
             sensor_idx += 1
+        # exit(1)
                 
 
     return pcds, number_of_sensors

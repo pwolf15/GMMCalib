@@ -7,6 +7,8 @@ from socket_client import SocketIOClient
 import create_gt
 import numpy as np
 import pickle
+import csv
+from scipy.spatial.transform import Rotation as R
 
 def get_initial_positions(V, nObs, num_sensors):
 
@@ -24,7 +26,7 @@ def get_initial_positions(V, nObs, num_sensors):
     return initial_positions
 
 
-def calibrate(data_path, config_file_path, sequence):
+def calibrate(data_path, config_file_path, sequence, num_iter=100, fixCentroids=False):
     pcds, num_sensors = generatePCDs.generate_data(data_path, config_file_path, sequence)
     Xin = create_gt.create_init_pc(box_size=(0.5, 0.5, 0.5), num_points=400) + np.array([9.8, 4.75, 0.38])
 
@@ -33,16 +35,20 @@ def calibrate(data_path, config_file_path, sequence):
 
     # create socket client to publish display data
     client = SocketIOClient('http://127.0.0.1:5000')
+    # client = None
 
     # send initial point cloud positions (vehicle frame)
     initial_positions = get_initial_positions(V, nObs, num_sensors)
-    client.emit("initial_positions", initial_positions)
+    if client:
+        client.emit("initial_positions", initial_positions)
 
-    # send initial gmm means
-    client.emit("gmm_means", {"Xin": Xin.tolist(), "X": Xin.tolist(), "num_iter": 0})
+        # send initial gmm means
+        client.emit("gmm_means", {"Xin": Xin.tolist(), "X": Xin.tolist(), "num_iter": 0})
 
+    import time
+    time.sleep(5)
     print("####### Perform Calibration and Model Generation. ########")
-    X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=100, socket_client=client, num_sensors=num_sensors)
+    X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=num_iter, socket_client=client, num_sensors=num_sensors, fixCentroids=fixCentroids)
  
     T_1 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2)]
     T_2 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2, nObs)]
@@ -54,6 +60,8 @@ def calibrate(data_path, config_file_path, sequence):
     gmmcalib_result = [T_final, X]
     with open("/app/output/gmmcalib_result.pkl", "wb") as f:
         pickle.dump(gmmcalib_result, f) 
+
+    return T_final
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run calibration script")
