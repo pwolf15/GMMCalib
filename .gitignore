@@ -6,3 +6,4 @@ arrayfire
 point_clouds_overlap
 .ipynb_checkpoints
 .DS_Store
+results

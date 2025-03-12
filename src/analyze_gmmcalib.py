@@ -23,6 +23,7 @@ def update_use_noise(YAML_FILE, new_value):
 
 def analyze():
 
+    
     obs_params = [10]
     iter_params = [100]
     noise_params = [0]
