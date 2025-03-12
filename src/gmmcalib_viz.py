@@ -45,8 +45,6 @@ def calibrate(data_path, config_file_path, sequence, num_iter=100, fixCentroids=
         # send initial gmm means
         client.emit("gmm_means", {"Xin": Xin.tolist(), "X": Xin.tolist(), "num_iter": 0})
 
-    import time
-    time.sleep(5)
     print("####### Perform Calibration and Model Generation. ########")
     X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=num_iter, socket_client=client, num_sensors=num_sensors, fixCentroids=fixCentroids)
  
