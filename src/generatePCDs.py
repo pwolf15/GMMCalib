@@ -39,7 +39,6 @@ def generate_data(data_path, config_file_path, sequence):
             for frame in range(sequence[0], sequence[-1]+1):
                 pcd_raw = o3d.io.read_point_cloud(sensor + str(frame) + ".pcd")
                 pcd = pcd_raw
-                print(pcd)
 
                 # carla transform
                 if use_carla_transform:
@@ -56,6 +55,7 @@ def generate_data(data_path, config_file_path, sequence):
                 pcd.transform(T_g)
                 # Crop 
                 roi = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
+                print(pcd.crop(roi))
                 pcds.append(pcd.crop(roi))
             idx += 1
     else:
@@ -64,7 +64,7 @@ def generate_data(data_path, config_file_path, sequence):
         for sensor in sensors:
             sensor_id = int(sensor[-2])
             prefix = 'frontleft' if sensor_id == 1 else 'frontright'
-            prefix += 'withnoise' if use_noise else 'nonoise'
+            prefix += 'withnoise001' if use_noise else 'nonoise'
             for idx in range(sequence[0], sequence[-1] + 1):
 
                 filename = f'{data_path}/{idx}_{prefix}.pcd'
@@ -84,7 +84,7 @@ def generate_data(data_path, config_file_path, sequence):
         for sensor in sensors:
             sensor_id = int(sensor[-2])
             prefix = 'frontleft' if sensor_id == 1 else 'frontright'
-            prefix += 'withnoise' if use_noise else 'nonoise'
+            prefix += 'withnoise001' if use_noise else 'nonoise'
 
             # check empty
             for idx in range(sequence[0], sequence[-1] + 1):
@@ -116,6 +116,7 @@ def generate_data(data_path, config_file_path, sequence):
                 pcd.transform(T_g)
                 # Crop 
                 roi = o3d.geometry.AxisAlignedBoundingBox(min_bound, max_bound)
+                print(pcd.crop(roi))
                 pcds.append(pcd.crop(roi))
 
             sensor_idx += 1
