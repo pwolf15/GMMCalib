@@ -42,7 +42,7 @@ Werkzeug==3.0.6
 zipp==3.20.2
 
 # for emm_gmm example
-tensorflow
-silence_tensorflow
-tqdm
-tensorflow_probability
+#tensorflow
+#silence_tensorflow
+#tqdm
+#tensorflow_probability
