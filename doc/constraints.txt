@@ -1,0 +1,125 @@
+I will modify the `jgmm` optimization process to enforce geometric constraints such as planarity, known distances between cube centroids, and fixed angles between cube normals. This will involve:
+
+- Adding constraints to ensure cube faces remain planar.
+- Enforcing known cube-to-cube distances and orientations.
+- Penalizing deviations from expected cube geometry to refine the optimization.
+- Exploring additional constraints that could further improve accuracy.
+
+Since accuracy is the priority, I will focus on methods that minimize error while maintaining numerical stability. I’ll provide an updated version of the `jgmm` function with these improvements.
+
+# Enhancing the `jgmm` Optimization with Geometric Constraints
+
+Introducing explicit geometric constraints into the `jgmm` calibration function can greatly improve accuracy by leveraging known relationships of the cube geometry ([Testing Camera Calibration with Constraints](https://www.asprs.org/wp-content/uploads/pers/1999journal/mar/1999_mar_249-258.pdf#:~:text=Echigo%2C%201990%3B%20Liu%20et%20al,of%20the%20estimated%203D%20points)). In fact, studies have shown that adding multiple geometric constraints can yield up to an order-of-magnitude improvement in the precision of estimated 3D parameters ([Testing Camera Calibration with Constraints](https://www.asprs.org/wp-content/uploads/pers/1999journal/mar/1999_mar_249-258.pdf#:~:text=points%20obtained%20from%20the%20camera,observed%20data%20vali%02date%20the%20approach)). Below, we outline how to incorporate each specified constraint into the `jgmm` optimization, focusing on accuracy over computation speed:
+
+1. **Planarity Constraint** – *Enforce planar faces:* Add a **coplanarity** condition for all points on each cube face ([Testing Camera Calibration with Constraints](https://www.asprs.org/wp-content/uploads/pers/1999journal/mar/1999_mar_249-258.pdf#:~:text=We%20consider%20ten%20geometric%20constraints%3A,1997%29%20for%20more%20information)). For example, during optimization ensure each face’s corner points (or other feature points on that face) lie on a single plane. This can be implemented by computing a plane fit (normal and offset) for the points on a face and penalizing the distances of those points from that plane. By driving these point-to-plane distances toward zero, the optimizer keeps each cube face perfectly flat (planar) despite noise. This constraint guarantees the cube’s faces remain planar as expected in the true geometry.
+
+2. **Distance Constraints** – *Enforce known inter-cube distances:* Incorporate terms that penalize deviation from the known distances between cube centroids (or other corresponding reference points of each cube). If the distance between the centers of Cube A and Cube B is known (say `d_AB`), add an error term `E_dist = (‖C_A - C_B‖ - d_AB)^2` to the objective. This term forces the optimized distance ‖C_A - C_B‖ to match the known value, keeping the cubes at the correct distances. Similar constraints can be added for any other known distances (e.g. between specific key points on different cubes) ([Testing Camera Calibration with Constraints](https://www.asprs.org/wp-content/uploads/pers/1999journal/mar/1999_mar_249-258.pdf#:~:text=,is%20the%20unknown)). These distance constraints anchor the solution to the physical measurements, preventing the optimizer from drifting or scaling the solution incorrectly.
+
+3. **Orientation Constraints** – *Maintain fixed angles between normals:* If the relative orientation of the cubes is known (e.g. their faces are supposed to be parallel or perpendicular), enforce that by penalizing deviations in the angle between corresponding normals. For instance, if two cubes are meant to be aligned (one face of Cube A parallel to one face of Cube B), constrain the dot product of those face normals to be 1 (for parallel) or –1 (for anti-parallel) as appropriate. If cubes are supposed to be at a fixed angle (e.g. 90°) to each other, enforce that the angle between their corresponding face normals remains ~90°. Concretely, for a desired angle θ between normal `n_i` and `n_j`, include a term like `E_angle = (∠(n_i, n_j) - θ)^2` (or use `dot(n_i, n_j) - cosθ` equivalently) ([Testing Camera Calibration with Constraints](https://www.asprs.org/wp-content/uploads/pers/1999journal/mar/1999_mar_249-258.pdf#:~:text=We%20consider%20ten%20geometric%20constraints%3A,1997%29%20for%20more%20information)). By adding such **plane-to-plane angle** constraints ([Testing Camera Calibration with Constraints](https://www.asprs.org/wp-content/uploads/pers/1999journal/mar/1999_mar_249-258.pdf#:~:text=We%20consider%20ten%20geometric%20constraints%3A,1997%29%20for%20more%20information)), the optimizer maintains the correct relative orientation of each cube, preserving known orthogonality or parallelism relations.
+
+4. **Regularization (Cube Geometry)** – *Penalize deviations from an ideal cube:* Introduce regularization terms that keep each reconstructed cube close to the expected perfect cube geometry. This involves several sub-constraints:
+   - **Equal Edge Lengths:** Penalize variation in the lengths of the cube’s edges. If the cube’s side length is known (or if all sides should be equal), add terms so that all edge lengths stay consistent. For example, for each edge length ℓ and expected length L, include `(ℓ - L)^2` (if L is known) or for each pair of edges ℓ_i, ℓ_j, include `(ℓ_i - ℓ_j)^2` to force equality.
+   - **Right Angles:** Enforce orthogonality of adjacent edges and face normals. Add a term for each pair of perpendicular edges (or face normals) such as `dot(n_faceA, n_faceB)` going to 0 (since cos 90° = 0). This keeps all cube face intersections at 90°.
+   - **Opposite Faces Parallel:** Constrain opposite faces’ normals to be anti-parallel (dot product = –1). This ensures the cube doesn’t warp (opposite faces remain parallel planes).
+   - **Planar Face Regularity:** In addition to the coplanarity of points on a face (from #1), you can enforce that each face’s plane normal is orthogonal to its adjacent face normals and at a 90° angle to the cube’s other faces, reinforcing the square shape of each face.
+   
+   These regularization terms act as strong **priors** on the cube’s shape, heavily penalizing any deviation from a perfect cube structure. Essentially, we treat the known cube geometry as a rigid template that the solution must conform to, which drastically reduces calibration ambiguity and improves accuracy ([LNCS 8693 - Accurate Intrinsic Calibration of Depth Camera with Cuboids](https://projet.liris.cnrs.fr/imagine/pub/proceedings/ECCV-2014/papers/8693/86930788.pdf#:~:text=rig%2C%20checker,procedures%2C%20making%20the%20commod%02ity%20depth)). The added cost from these terms will guide the optimizer toward solutions that not only fit the observed data but also respect the cube’s true geometry.
+
+5. **Additional Improvements** – *Other useful constraints:* Beyond the above, other geometric relationships can further refine accuracy:
+   - **Collinearity/Co-planarity of Multiple Cubes:** If multiple cube centroids are supposed to lie on a common line or plane (for example, if cubes were placed in a straight line or on the same table surface), enforce those collinearity or coplanarity conditions. This could be done by minimizing the deviation of centroids from a best-fit line or plane.
+   - **Symmetry Constraints:** If the calibration object or arrangement has symmetry, incorporate it. For example, if all cubes are identical, their corresponding dimensions and angles should be constrained to be equal in the solution. This effectively ties certain parameters together (e.g. all cubes share the same side length L).
+   - **Reprojection/Error Constraints:** Though not a geometric *prior* per se, using a robust error norm for the primary calibration error (e.g. Tukey or Huber loss on reprojection/point distance errors) can improve accuracy by reducing the influence of outliers. This is an algorithmic improvement that complements the geometric constraints.
+   - **Hard Constraints via Lagrange Multipliers:** For maximum accuracy, consider enforcing critical constraints as hard constraints (e.g. via Lagrange multipliers or a constrained solver) rather than just penalties. For instance, one could explicitly solve for plane parameters that force zero out-of-plane residual for each face. This might increase computation time (and complexity) but guarantees the geometry is satisfied exactly, aligning with the priority on accuracy ([Testing Camera Calibration with Constraints](https://www.asprs.org/wp-content/uploads/pers/1999journal/mar/1999_mar_249-258.pdf#:~:text=points%20obtained%20from%20the%20camera,observed%20data%20vali%02date%20the%20approach)).
+   
+   In summary, any additional **known geometric relation** among the points, lines, or planes in the calibration target can be added to the optimization. Each added constraint further reduces the solution’s degrees of freedom and uncertainty, thereby refining the calibration result ([Testing Camera Calibration with Constraints](https://www.asprs.org/wp-content/uploads/pers/1999journal/mar/1999_mar_249-258.pdf#:~:text=Echigo%2C%201990%3B%20Liu%20et%20al,of%20the%20estimated%203D%20points)).
+
+### Updated `jgmm` Function with Constraints
+
+Below is a pseudocode outline of the modified `jgmm` function incorporating the above constraints. The idea is to augment the original cost function with extra terms for planarity, distances, orientations, and regularization. These terms are added to the total error that the optimizer minimizes. By weighting these constraints strongly (or enforcing them exactly), the optimizer will favor solutions that meet the geometric criteria, even if it means a bit more computation in each iteration.
+
+```python
+def jgmm(observations, known_distances, known_angles, expected_length):
+    """
+    Optimize calibration with geometric constraints.
+    observations: input data (e.g. detected points/planes from cubes)
+    known_distances: dict of expected distances between specific cube centroids (or points)
+    known_angles: dict of expected angles between specific face normals (in radians or degrees)
+    expected_length: expected side length of the cube (if known)
+    """
+    # Initial parameter guess (e.g. poses of cubes, camera params, etc.)
+    params = initialize_parameters(observations)
+    
+    # Define the objective function that computes residuals/errors
+    def objective_function(params):
+        errors = []
+        
+        # 1. Original calibration errors (e.g. reprojection or point alignment errors)
+        errors.extend(compute_calibration_errors(params, observations))
+        
+        # 2. Planarity Constraint: for each cube face, penalize deviation from a single plane
+        for face in all_cube_faces(params): 
+            # Compute plane from current face (e.g. via three points or a plane fit)
+            plane_normal, plane_point = fit_plane(face.points_current)
+            # For each point on the face, compute distance to plane
+            for pt in face.points_current:
+                dist = point_plane_distance(pt, plane_normal, plane_point)
+                errors.append(dist)  # want this distance ~ 0 for planarity
+        
+        # 3. Distance Constraints: enforce known distances between cube centroids (or key points)
+        for (cube_i, cube_j), d_ij in known_distances.items():
+            Ci = cube_i.centroid_current(params)
+            Cj = cube_j.centroid_current(params)
+            current_d = distance(Ci, Cj)
+            errors.append(current_d - d_ij)  # want this = 0
+        
+        # 4. Orientation Constraints: enforce known angles between specified cube face normals
+        for (face_m, face_n), theta in known_angles.items():
+            n_m = face_m.normal_current(params)  # current normal vector of face m
+            n_n = face_n.normal_current(params)  # current normal of face n
+            # Compute current angle between normals
+            cos_angle = dot(n_m, n_n) / (||n_m|| * ||n_n||)
+            current_angle = arccos(cos_angle)
+            errors.append(current_angle - theta)  # want this = 0 (angle matches theta)
+            # Alternatively, directly use dot product difference: dot(n_m, n_n) - cos(theta)
+        
+        # 5. Regularization: enforce cube's internal geometry (edges equal, orthogonal, etc.)
+        for cube in all_cubes(params):
+            # (a) Equal edges: penalize variance in edge lengths
+            edge_lengths = [edge.length_current(params) for edge in cube.edges]
+            avg_length = sum(edge_lengths) / len(edge_lengths)
+            for L in edge_lengths:
+                errors.append(L - avg_length)  # drive all edges to the same length
+            
+            # If expected_length is known, also penalize deviation from that absolute size
+            if expected_length is not None:
+                for L in edge_lengths:
+                    errors.append(L - expected_length)
+            
+            # (b) Right angles between adjacent edges (or face normals)
+            for (edge_u, edge_v) in cube.adjacent_edge_pairs:
+                # For perpendicular edges, dot product ~ 0
+                vec_u = edge_u.direction_current(params)
+                vec_v = edge_v.direction_current(params)
+                errors.append(dot(vec_u, vec_v))  # want ~0 for orthogonality
+            
+            # (c) Opposite faces parallel: dot of normals = ±1
+            for face_pair in cube.opposite_faces:
+                n1 = face_pair[0].normal_current(params)
+                n2 = face_pair[1].normal_current(params)
+                errors.append(dot(normalize(n1), normalize(n2)) + 1.0)  # want = 0 (since dot = -1)
+        
+        return errors
+    
+    # Run the non-linear optimization (e.g., least-squares solver) with the extended objective
+    result = optimize.least_squares(objective_function, params, **solver_options)
+    # (solver_options may include using a robust loss, more iterations, etc., to prioritize accuracy)
+    
+    return result.x  # optimized calibration parameters
+```
+
+In this pseudocode, we add *planarity*, *distance*, *orientation*, and *regularization* error terms to the original calibration error. The optimizer (e.g. Levenberg-Marquardt or another non-linear least squares method) will adjust the calibration parameters (such as the pose of each cube, the camera intrinsics/extrinsics, etc.) to minimize **all** these errors simultaneously. By doing so, the solution not only fits the observed data but also strictly adheres to the geometric truths of the scene (flat faces, correct inter-cube spacing, orthogonal orientations, and true cube shape). 
+
+**Accuracy vs. Computation:** These additional constraints increase the number of terms (and possibly the complexity) in the cost function, which can slow down each iteration of the optimizer and might require more iterations for convergence. For example, solving with several equality constraints is more computationally intensive than an unconstrained fit. However, because we prioritize accuracy, this trade-off is acceptable – the improved solution fidelity justifies the extra computation. In practice, using an efficient optimizer and good initial estimates can mitigate the performance impact. Moreover, the constraints significantly reduce ambiguity in the calibration, often leading to faster convergence to the correct solution even if each step is heavier.
+
+By integrating the above constraints, the updated `jgmm` function will yield a calibrated model that respects the known geometry of the calibration cubes. The cube faces will remain perfectly planar, cubes will be positioned at correct distances and orientations relative to each other, and each cube’s shape will be consistent with a true cube. These enforced geometric relationships act like additional “measurements,” tightening the solution and **improving calibration accuracy** beyond what is possible with the raw observation data alone ([LNCS 8693 - Accurate Intrinsic Calibration of Depth Camera with Cuboids](https://projet.liris.cnrs.fr/imagine/pub/proceedings/ECCV-2014/papers/8693/86930788.pdf#:~:text=rig%2C%20checker,procedures%2C%20making%20the%20commod%02ity%20depth)) ([Testing Camera Calibration with Constraints](https://www.asprs.org/wp-content/uploads/pers/1999journal/mar/1999_mar_249-258.pdf#:~:text=points%20obtained%20from%20the%20camera,observed%20data%20vali%02date%20the%20approach)). The result is a much more reliable calibration, ideal for high-accuracy requirements, at the cost of some additional computation. 
+

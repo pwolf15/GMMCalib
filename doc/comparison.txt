@@ -1,0 +1,18 @@
+1. default data, default parameters
+euler angles [ 0.05722181 -0.0489978   0.01603908]
+Translation (x, y, z): [ 0.01821398  0.06001662 -0.00816052] <= 6 cm in worst case
+2. default data, add calibration error (rotate 10 degrees about z)
+euler angles [ 0.05040037  9.91216104 10.03739911] 
+Translation (x, y, z): [ 0.00674741  0.05940771 -0.0173394 ] <= 6 cm in worst case
+3. cube data, default parameters (noise001), no constraints 
+euler angles [ 6.28413547 11.30139374 32.754222  ]
+Translation (x, y, z): [ 0.41676757 -0.2812709  -0.22819461]
+4. with plane constraints (0.01), rotate 5, 12, 30
+euler angles [ 6.28413547 11.30139374 32.754222  ]
+Translation (x, y, z): [ 0.41676757 -0.2812709  -0.22819461]
+5. 0.1
+euler angles [ 6.28413547 11.30139374 32.754222  ]
+Translation (x, y, z): [ 0.41676757 -0.2812709  -0.22819461]
+6. 3 observations only, clearly more data didn't help
+euler angles [ 4.41156358 12.01651521 29.29561859]
+Translation (x, y, z): [-0.10341806  0.07954433  0.05213528]

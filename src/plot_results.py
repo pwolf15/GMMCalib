@@ -3,7 +3,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 # Load the CSV file
-data_type = 'sim_data'
+data_type = 'cube_noise001'
 csv_file_path = f"results/{data_type}_results.csv"
 df = pd.read_csv(csv_file_path)
 

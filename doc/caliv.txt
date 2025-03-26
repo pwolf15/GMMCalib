@@ -1,0 +1,15 @@
+* CaLIV estimates calibration of one or more LiDAR sensors with respect to the vehicle frame,
+using object reconstruction and known vehicle poses over time.
+* you have a LiDAR sensor (or multiple)
+* point clouds captured at different time steps
+* known vehicle trajectory
+* estimates rigid-body transform from LIDAR frame -> vehicle frame
+* uses vehicle motion (ego poses), performs object-based reconstruction over time
+* optimizes extrinsic transform sot htat when point clouds are transformed into vehicle frame, they align over time
+
+workflow
+1. load point clouds and transforms
+2. run GMMCalib (jgmm) to get initial sensor poses
+3. create a bounding box over the reconstructed frame
+4. run minimization (2-stage) to optimize sensor-to-vehicle transforms
+5. output calibrated extrinsics

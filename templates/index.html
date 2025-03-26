@@ -156,7 +156,8 @@
         //     });
 
         // ✅ Connect to WebSocket using Socket.IO
-        const socket = io.connect('http://127.0.0.1:5000');
+        const socket = io('http://127.0.0.1:5000');
+
 
         socket.on('connect', function () {
             console.log("✅ Connected to WebSocket Server!");

@@ -1,0 +1,134 @@
+/ Ilir questions
+/ difference between 001noise and noise, should we use both?
++ noise has more noise
+/ how many pts should we choose in GMM?
+    / JRMPC uses half-median
+    / GMMCalib uses 400 pts
+/ if we have 2000 data points per V, how many pts in GMM?
+/ experiment setup: 100 simulation iterations with 3.0 degree error, 0.1 translation
+
+/ add translation
++ add translation
+
+/ try 100 iterations with default config
+/ so, trying to verify accuracy of cube-based method
+/ accuracy of default data
+/ ensure you can get accurate performance with translate + rotate on default data
+
+/ todo
+/ 1. add code to add rotation and translation calibration error
+    / rotate and translate points
+    / rotate and translate obb
+/ 2. run through code with 2 scenarios
+    / assume perfect extrinsics
+    / assume calibration error
+/ 3. fully replicate bunny example
+/ 4. support noise, noise001, and nonoise
+
+/ cleanup, comment, understand code
+/ verify that accuracy/ground truth actually computed
+/ isolate differences between example and cube data
+    / example: noise in data always, 2200 pts, not just cube data
+        / 3 observations
+        Calibration Error: 
+
+        [[ 9.99999595e-01 -2.80788634e-04 -8.54892827e-04  1.82139849e-02]
+        [ 2.79934603e-04  9.99999462e-01 -9.98948252e-04  6.00166199e-02]
+        [ 8.55172861e-04  9.98708533e-04  9.99999136e-01 -8.16052469e-03]
+        [ 0.00000000e+00  0.00000000e+00  0.00000000e+00  1.00000000e+00]]
+    / cube data: noise optional, just cube data
+        / no noise: 480 points
+        / noise: 
+
+/ 3.12
+/ next inject calibration error (degrees yaw or something), then we know 
+/ how do I know units? 
+    / depends on input data, but we can assume based on size: 0.0182, 0.060, -8.16e-03 are fractions of m
+    / therefore error is in cm: ChatGPT says single-digit cm error is good?
+    / does this agree with GMM calib paper?
+    / how does this compare to cube data outputs?
+    / JRMPC does the same 
+        1. use known transformation for point clouds
+        2. run calibration
+        3. look at comparison
+    / for original example, calibration error (T_final) is near identity. This means, that the sensors will already
+        nearly perfectly calibrated (rotation error is zero, non-diagonal elements are near zero; translation is near zero)
+    / T_Final = I doesn't mean that T2 = T1, more that original extrinsics were accurate 
+The extrinsic parameters of a camera describe its position and orientation in the 3D world, allowing you to transform points from one camera’s coordinate system into another or into the world coordinate system.
+If two cameras are correctly calibrated, then a 3D point projected from each camera should end up in the same 3D position in the world. This is the fundamental idea behind stereo vision, structure-from-motion, and multi-camera calibration.
+    / so I have each camera's extrinsics
+    / T2: transformation from frame 2 to world
+    / T2^-1: transform points from world to frame 22
+    / T1: transformation of points from frame 1 to world
+    / T2^-1 * T1: transformation of points in frame 1 to frame 2
+    / T2^-1 * T1 = I: sensors are calibrated, because point 
+If both sensors are correctly calibrated, then their extrinsic parameters correctly describe their relative pose. 
+This means that for any 3D point, we should get: P1 = P2.
+/ T2^-1 * T1 means that in the common reference frame, sensor 1 and sensor 2 are correctly placed relative to each other.
+/ If T_final = identity, original extrinsics (global -> sensor 1, sensor2) are correct
+/ If T_final != identity, we need to correct the errors is the given extrinsics
+​/ I assume pattern must not necessarily align? 
+ 
+That is, the same physical point in space has the same coordinates in both sensor frames.
+/ 2.12
+/ pre-processing code to allow you to select subset of data
++ pre-processing code to allow subset of data
+/ reduce ROI so it only includes cubes
++ reduce ROI
+- config
++ config
+- data updates
++ data updates
+/ gmmcalib: add client to publish
++ add client to publish
+/ replicate jrmpc demo
+    / 1. display initial position of point clouds
+        + display initial position of point clouds
+        / in initial position plot, allow filtering by observation
+        + allow filtering by observation
+    / 2. display GMM means after n iterations
+        + display GMM means after n iterations
+    / 3. display initial config
+    / 4. display results
+    / 5. display registration of set after n iterations
+        / allow filtering by observation
+        + display registrations over time, allow filtering by registration
+    / 6. display registration of sets after n iterations with unreliable poitns filtered (placeholder)
+/ actual replicate jrmpc demo with bunny data
++ actual replicate jrmpc demo with bunny data
+/ write results to csv
++ write results to csv
+/ automate collection
++ automate collection
+/ display results 
+    / (mean euler angle (roll pitch yaw in rad))
+    / translation (x, y, z)
+    + display results: euler angle (roll, pitch, yaw in rad)
+    + translation
+/ analyze results
+    / are results same as plain gmm calib?
+    / are results on original data worse when centroids are not fixed?
+        / use data,
+        / use first + final registration image
+    / are results for cube better with more iterations (ignore centroid fixing)
+        / use data
+        / show first + final registration image
+    / are results for cube better with fixed centroids  
+        / use data
+        / show first + final registration image
+    / does bunny example produce same results
+/ try with and without noise (should do better with noise counter-intuitively)
++ try with and without noise
+/ try with and without moving centroids
++ try with and without moving centroids
+/ write results to csv file 
++ 
+100 iterations, cube config
+
+trials
+* compare against default repo data
+* number of observations
+        10, 50, 100, 200
+* options 
+- noise: [0,1]
+- fix centroids: [0, 1]
