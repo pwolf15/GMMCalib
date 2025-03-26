@@ -4,15 +4,6 @@ import pickle
 from transformPCDs import compute_global_transform
 import yaml
 
-
-import numpy as np
-import open3d as o3d
-from scipy.spatial.transform import Rotation as R
-
-import numpy as np
-import open3d as o3d
-from scipy.spatial.transform import Rotation as R
-
 import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation as R
