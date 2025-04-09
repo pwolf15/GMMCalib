@@ -53,3 +53,14 @@ GMMCalib is an ongoing project. Future developments include:
   year={2024}
 }
 ```
+
+Notes
+
+https://github.com/jax-ml/jax/issues/27062
+https://developer.apple.com/metal/jax/
+
+``` bash
+unalias python
+pyenv activate jaxenv
+python src/test_jax.py
+```

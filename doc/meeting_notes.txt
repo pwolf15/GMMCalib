@@ -1,0 +1,13 @@
+# 4.2.2025
+
+- don't use default data! only 3 observations is not enough to make a point
+- you can inspect results visually to see why GMM diverges
+- why does GMM calib on default dataset fail? maybe don't use it
+- for single cube, can you experiment with different numbers of means
+- first get a baseline without fixing centroids. Otherwise you can't make comparison
+- performance should be on-level of paper results
+- can you try with different calibration objects/CAD models
+
+/ add print check for calibration results
++ add print check for calibration results
+/ note translation is very large
