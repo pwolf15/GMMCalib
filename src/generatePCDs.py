@@ -108,6 +108,7 @@ def generate_data(data_path, config_file_path, sequence):
                 if sensor != sensors[0]:  
                     # rotation_error = (np.random.rand()*6-3, np.random.rand()*6-3,np.random.rand()*6-3)
                     # translation_error = (np.random.rand()*0.2-0.1, np.random.rand()*0.2-0.1,np.random.rand()*0.2-0.1)
+                    print('rotation error, translation error', rotation_error, translation_error)
                     final_pcd = transform(cropped_pcd, rotation_error, translation_error)
 
                 else:

@@ -10,4 +10,8 @@
 
 / add print check for calibration results
 + add print check for calibration results
+/ commit changes
++ commit changes
 / note translation is very large
+/ how to explain larger errors in case of cube?
+/ is the position of the GMM cubes right? why is there always this translation error?
