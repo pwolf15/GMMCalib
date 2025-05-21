@@ -62,9 +62,9 @@ def jrmpc(V, X, max_num_iter=100, gamma=0.1, R=None, T=None, Q=None, epsilon=Non
 
     if not is_set_T:
         print('view shape: ', V[0].shape, 'X shape: ', X.shape)
-        t = [(np.mean(X, axis=0) - np.mean(view, axis=0)).reshape(3, 1) for view in V]
+        t = [(np.mean(X, axis=0) - np.mean(view, axis=0)) for view in V]
 
-    TV = [(view @ Rv.T + tv.T) for view, Rv, tv in zip(V, R, t)]
+    TV = [(view @ Rv.T + tv) for view, Rv, tv in zip(V, R, t)]
 
     # Q represents weights: inverse variance
     # initial spread (uncertainty of Gaussians)

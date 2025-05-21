@@ -7,6 +7,98 @@ import tempfile
 import math
 import numpy as np
 
+
+import os
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+def save_dashboard_all_views_2x4_with_text(
+    initial_data,
+    final_data,
+    config_params,
+    output_error,
+    output_path="output/dashboard_annotated.png",
+    width=2400,
+    height=1200,
+    scale=2
+):
+    def build_trace(pcd_list, num_obs):
+        traces = []
+        colors = {0: "red", 1: "blue", 2: "green", 3: "orange", 4: "purple", 5: "cyan"}
+        for idx, pcd in enumerate(pcd_list):
+            sensor_id = idx // num_obs
+            pts = np.array(pcd["points"])
+            color = colors.get(sensor_id, "gray")
+            trace = go.Scatter3d(
+                x=pts[:, 0], y=pts[:, 1], z=pts[:, 2],
+                mode='markers',
+                marker=dict(size=2, color=color),
+                name=f"Sensor {sensor_id+1}",
+                showlegend=False
+            )
+            traces.append(trace)
+        return traces
+
+    init_traces = build_trace(initial_data["pcd_list"], initial_data["num_obs"])
+    final_traces = build_trace(final_data["pcd_list"], final_data["num_obs"])
+
+    fig = make_subplots(
+        rows=2, cols=4,
+        specs=[[{'type': 'scene'}]*4, [{'type': 'scene'}]*4],
+        subplot_titles=[
+            "Initial (Top)", "Initial (Side)", "Initial (Front)", "Initial (Iso)",
+            "Final (Top)", "Final (Side)", "Final (Front)", "Final (Iso)"
+        ]
+    )
+
+    cameras = {
+        "top": dict(eye=dict(x=0.001, y=0.001, z=2.5)),
+        "side": dict(eye=dict(x=2.5, y=0.001, z=0.001)),
+        "front": dict(eye=dict(x=0.001, y=2.5, z=0.001)),
+        "iso": dict(eye=dict(x=1.5, y=1.5, z=1.5)),
+    }
+    views = ["top", "side", "front", "iso"]
+
+    for i, view in enumerate(views):
+        for trace in init_traces:
+            fig.add_trace(trace, row=1, col=i+1)
+        for trace in final_traces:
+            fig.add_trace(trace, row=2, col=i+1)
+        fig.update_scenes(camera=cameras[view], row=1, col=i+1)
+        fig.update_scenes(camera=cameras[view], row=2, col=i+1)
+
+    fig.update_layout(
+        height=height,
+        width=width,
+        margin=dict(l=20, r=20, t=100, b=20),
+    )
+
+    # Add annotations for parameters and errors
+    y_offset = 1.15
+    lines = []
+    lines.append("CONFIG:")
+    for k, v in config_params.items():
+        lines.append(f"{k}: {v}")
+    lines.append("\nOUTPUT ERROR (deg, m):")
+    for k, v in output_error.items():
+        lines.append(f"{k}: {v:.3f}")
+
+    fig.add_annotation(
+        text="<br>".join(lines),
+        xref="paper", yref="paper",
+        x=0, y=0.5,
+        showarrow=False,
+        align="left",
+        font=dict(size=14),
+        bordercolor="black",
+        borderwidth=1
+    )
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    fig.write_image(output_path, scale=scale)
+    print(f"Saved 2x4 annotated dashboard to: {output_path}")
+
 # hack to dynamically set use_noise parameter in GMMCalib config yaml
 def update_config_param(input_yaml, output_yaml, field, new_value):
     """Loads the YAML file, modifies 'use_noise', and saves it back with correct formatting."""
@@ -27,7 +119,7 @@ def update_config_param(input_yaml, output_yaml, field, new_value):
 def analyze():
 
     ## parameters for consecutive runs of GMMCalib
-
+ 
     with open("config/params.yaml", "r") as f:
         params = yaml.safe_load(f)
 
@@ -120,7 +212,7 @@ def analyze():
 
                                 # run calibration, record execution time
                                 start_time = time.time()
-                                T_final = calibrate(data_path, tmpfile.name, sequence, iter_param, fix_centroid_param, num_points_param)
+                                T_final, initial_positions, final_registrations = calibrate(data_path, tmpfile.name, sequence, iter_param, fix_centroid_param, num_points_param)
                                 end_time = time.time() 
                                 execution_time = end_time - start_time 
                                 
@@ -212,6 +304,27 @@ def analyze():
                                         log.error(f'{labels[idx]}: {errors[idx]:.3f} > {thresholds[idx]}')
                                     else:
                                         log.info(f'{labels[idx]}: {errors[idx]:.3f} <= {thresholds[idx]}')
+
+                                output_errors = errors
+                                save_dashboard_all_views_2x4_with_text(
+                                    initial_data=initial_positions,
+                                    final_data=final_registrations,
+                                    config_params={
+                                        "Noise": noise_param,
+                                        "FixCentroids": fix_centroid_param,
+                                        "NumObservations": obs_param,
+                                        "NumPoints": num_points_param,
+                                        "Iterations": iter_param
+                                    },
+                                    output_error={
+                                        "Roll": output_errors[0],
+                                        "Pitch": output_errors[1],
+                                        "Yaw": output_errors[2],
+                                        "X": output_errors[3],
+                                        "Y": output_errors[4],
+                                        "Z": output_errors[5],
+                                    }
+                                )
 
                                 # Append data to CSV file
                                 writer = csv.writer(file)

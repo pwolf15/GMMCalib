@@ -19,13 +19,119 @@ def get_registrations(V, nObs, num_sensors):
         })
     return initial_positions
 
+import plotly.graph_objects as go
+import numpy as np
+
+def plot_registered_observations(registration_data, num_iter, output_filename="registered_observations.png"):
+    fig = go.Figure()
+
+    sensors = registration_data["sensors"]
+    num_obs = registration_data["num_obs"]
+    pcd_list = registration_data["pcd_list"]
+
+    sensor_colors = {
+        0: "red",
+        1: "blue", 
+        2: "green", 
+        3: "orange", 
+        4: "purple", 
+        5: "cyan"
+    }
+
+    for idx, pcd in enumerate(pcd_list):
+        sensor_id = idx // num_obs
+        obs_id = idx % num_obs
+        pts = np.array(pcd["points"])
+        color = sensor_colors.get(sensor_id, 'gray')
+        label = f"Obs {obs_id + 1} - Sensor {sensor_id + 1}"
+
+        fig.add_trace(go.Scatter3d(
+            x=pts[:, 0], y=pts[:, 1], z=pts[:, 2],
+            mode='markers',
+            marker=dict(size=2, color=color),
+            name=label
+        ))
+
+    fig.update_layout(
+        title=f"Registration after {num_iter} iterations",
+        scene=dict(
+            xaxis_title="X",
+            yaxis_title="Y",
+            zaxis_title="Z",
+            aspectmode="data"
+        ),
+        showlegend=True
+    )
+
+    fig.write_image(output_filename, width=1200, height=800)
+    print(f"Saved registered point cloud image to: {output_filename}")
+
+import plotly.graph_objects as go
+import numpy as np
+import os
+
+def plot_registered_observations_multiview(registration_data, output_dir="output", basename="registered_final"):
+    os.makedirs(output_dir, exist_ok=True)
+
+    sensors = registration_data["sensors"]
+    num_obs = registration_data["num_obs"]
+    pcd_list = registration_data["pcd_list"]
+
+    sensor_colors = {
+        0: "red",
+        1: "blue",
+        2: "green",
+        3: "orange",
+        4: "purple",
+        5: "cyan"
+    }
+
+    views = {
+        "top":     dict(eye=dict(x=0.0, y=0.0, z=2.5)),
+        "side":    dict(eye=dict(x=2.5, y=0.0, z=0.0)),
+        "front":   dict(eye=dict(x=0.0, y=2.5, z=0.0)),
+        "iso":     dict(eye=dict(x=1.5, y=1.5, z=1.5)),
+    }
+
+    for view_name, camera in views.items():
+        fig = go.Figure()
+
+        for idx, pcd in enumerate(pcd_list):
+            sensor_id = idx // num_obs
+            obs_id = idx % num_obs
+            pts = np.array(pcd["points"])
+            color = sensor_colors.get(sensor_id, 'gray')
+            label = f"Obs {obs_id + 1} - Sensor {sensor_id + 1}"
+
+            fig.add_trace(go.Scatter3d(
+                x=pts[:, 0], y=pts[:, 1], z=pts[:, 2],
+                mode='markers',
+                marker=dict(size=2, color=color),
+                name=label
+            ))
+
+        fig.update_layout(
+            title=f"Final Registration - {view_name.capitalize()} View",
+            scene=dict(
+                xaxis_title="X", yaxis_title="Y", zaxis_title="Z",
+                aspectmode="data",
+                camera=camera
+            ),
+            showlegend=False
+        )
+
+        output_path = os.path.join(output_dir, f"{basename}_{view_name}.png")
+        fig.write_image(output_path, width=1200, height=800)
+        print(f"Saved {view_name} view to: {output_path}")
+
+
 """
 This code implementation was inpired by G. D. Evangelidis and R. Horaud, 
 “Joint Alignment of Multiple Point Sets with Batch and Incremental Expectation-Maximization,” 
 IEEE Transactions on Pattern Analysis and Machine Intelligence, vol. 40, pp. 1397–1410, June 2018.
 """
 
-def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False, num_sensors=2):
+def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False, num_sensors=2, save_images=False):
     """Calculate the transformations and jointly align points clouds
     Parameters
     ---------------
@@ -66,8 +172,9 @@ def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False, num_sensors
 
     """ Init translation matrix"""
     t = []
-    for i in range(len(V)):
-        t.append(np.array([0, 0, 0]))
+    t = [(np.mean(Xin, axis=0) - np.mean(view.T, axis=0)) for view in V]
+    # for i in range(len(V)):
+    #     t.append(np.array([0, 0, 0]))
 
     """ Transformed Sets based on initial R & t"""
     TV = [np.dot(R[i],V[i]) + t[i].reshape((3,1)) for i in range(len(V))]
@@ -88,7 +195,7 @@ def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False, num_sensors
     #maxNumIter = 10
     epsilon = 1e-9
     updatePriors = 1
-    gamma =  0.1
+    gamma =  0.3
     pk = 1/(K*(gamma+1))
 
     print(f"Fix centroids {fixCentroids}")
@@ -167,7 +274,12 @@ def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False, num_sensors
             registrations = get_registrations(TV, len(TV), num_sensors)
             registrations["num_iter"] = it+1
             socket_client.emit("registrations", registrations)
-
+                    
+        if save_images: 
+            registrations = get_registrations(TV, len(TV), num_sensors)
+            registrations["num_iter"] = it+1
+            plot_registered_observations(registrations, it+1, f"output/registered_observations_{str(it+1)}.png")
+    
         '''Update Covariances '''
         wnormes = [np.sum(np.multiply(alpha[i], sse(np.asarray(TV[i].astype(np.float64)), np.asarray(X))), axis=0) for i in range(len(TV))]
 

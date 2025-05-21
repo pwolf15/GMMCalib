@@ -114,12 +114,11 @@ def main():
 
     for j in range(0, M):
         rel_est = R[j].T @ R[0]   # relative rotation from view j to view 0
-        rel_gt = Rgt[0].T @ Rgt[j]  # true relative rotation from view j to view 0
+        rel_gt = Rgt[j]  # true relative rotation from view j to view 0
         error_j = np.linalg.norm(rel_gt - rel_est, ord='fro')
+        print('t: ', t[j])
         print(f'View {j}: error = {error_j:.6f}')
 
-
-    exit(1)
     # show initial position of point clouds
 
     # color using same coloring as MATLAB

@@ -1,5 +1,5 @@
 sim_iterations: 1
-obs_params: [3]
+obs_params: [50]
 iter_params: [50]
 noise_params: [0]
 fix_centroid_params: [0]
@@ -7,12 +7,20 @@ rotation_error_params:
   - [0, 0, 0]
 translation_error_params:
   - [0, 0, 0]
-num_points_params: [250]
-inject_error: False
+num_points_params: [400]
+inject_error: True
 
-config_type: default
+config_type: chair
+
+# display and save parameters
+display: False
+save_images: False
 
 paths:
+  bunny:
+    data: "./bunny_data"
+    config: "./config/bunny_config.yaml"
+    start: 1
   cube:
     data: "./point_clouds_overlap"
     config: "./config/cube_config.yaml"
