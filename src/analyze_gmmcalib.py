@@ -28,51 +28,24 @@ def analyze():
 
     ## parameters for consecutive runs of GMMCalib
 
-    sim_iterations = 1
-    obs_params = [1]
-    iter_params = [50]
-    noise_params = [0]
-    fix_centroid_params = [0]
-    rotation_error_params = [
-        [0,0,0]
-    ]
-    translation_error_params = [
-        [0,0,0]
-    ]
-    num_points_params = [
-        # 50,
-        100,
-        # 100,
-        # 200,
-        # 400
-    ]
+    with open("config/params.yaml", "r") as f:
+        params = yaml.safe_load(f)
 
-    # sequence length
-    # obs_params = [100]
+    sim_iterations = params["sim_iterations"]
+    obs_params = params["obs_params"]
+    iter_params = params["iter_params"]
+    noise_params = params["noise_params"]
+    fix_centroid_params = params["fix_centroid_params"]
+    rotation_error_params = params["rotation_error_params"]
+    translation_error_params = params["translation_error_params"]
+    num_points_params = params["num_points_params"]
+    config_type = params["config_type"]
+    inject_error = params["inject_error"]
 
-    # # num GMM EM iterations
-    # iter_params = [100]
+    data_path = params["paths"][config_type]["data"]
+    config_file_path = params["paths"][config_type]["config"]
+    start = params["paths"][config_type]["start"]
 
-    # # use data with noise (1) or not (0)
-    # noise_params = [0]
-
-    # # fix GMM means (1) or not (0)
-    # fix_centroid_params = [0]
-
-    config_type = 'cube'
-    # config_type = 'default'
-
-    if config_type == 'cube':
-        data_path = './point_clouds_overlap'
-        config_file_path = './config/cube_config.yaml'
-        results_file_path = './results/cube_fix_centroids_results.csv'
-        start = 121
-    else:
-        data_path = './data'
-        config_file_path = './config/config.yaml'
-        results_file_path = './results/default_results.csv'
-        start = 1
-        obs_params = [3]
 
     ## end parameters
 
@@ -129,8 +102,12 @@ def analyze():
                                 np.random.seed(None)
                                 angle_deg = np.random.uniform(-max_rot_deg, max_rot_deg, size=3)
                                 translation = np.random.uniform(-max_trans, max_trans, size=3)
-                                rotation_error_param = rotation_error_params[0] # angle_deg.tolist()
-                                translation_error_param = translation_error_params[0] # translation.tolist()
+                                if not inject_error:
+                                    rotation_error_param = rotation_error_params[0]  # angle_deg.tolist() #
+                                    translation_error_param = translation_error_params[0]
+                                else:
+                                    rotation_error_param = angle_deg.tolist() #
+                                    translation_error_param = translation.tolist() #translation_error_params[0] # 
                                 print('injected errors', rotation_error_param, translation_error_param)
                                 
                                 # TODO fix hard-coding of start sequence

@@ -1,0 +1,16 @@
+number_of_sensors: 2
+transform_sensor_1:
+- [-0.3462441675094884, 0.016410960942060756, 0.006108652381980153, 2.312053, -0.581505, 1.610277]
+transform_sensor_2:
+- [0.355206906805981, 0.016531691366879073, 0.00612787509817238, 2.311906, -1.787, 1.612698]
+min_bound:
+- [4, -3, 0.025]
+max_bound:
+- [12, 3, 5]
+is_cube_data: 1
+use_noise: 0
+use_carla_transform: 0
+translation_error:
+- [0.5, 0.5, 0.5]
+rotation_error:
+- [10, 15, 20]

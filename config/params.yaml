@@ -1,0 +1,35 @@
+sim_iterations: 1
+obs_params: [3]
+iter_params: [50]
+noise_params: [0]
+fix_centroid_params: [0]
+rotation_error_params:
+  - [0, 0, 0]
+translation_error_params:
+  - [0, 0, 0]
+num_points_params: [250]
+inject_error: False
+
+config_type: default
+
+paths:
+  cube:
+    data: "./point_clouds_overlap"
+    config: "./config/cube_config.yaml"
+    start: 121
+  box:
+    data: "./recordings/box_1746607947"
+    config: "./config/box_config.yaml"
+    start: 0
+  box_large:
+    data: "./recordings/box_large_1746612140"
+    config: "./config/box_large_config.yaml"
+    start: 0
+  chair:
+    data: "./recordings/chair_1746609454"
+    config: "./config/chair_config_after.yaml"
+    start: 0
+  default:
+    data: "./data"
+    config: "./config/config.yaml"
+    start: 1
