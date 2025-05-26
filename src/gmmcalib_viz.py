@@ -13,6 +13,7 @@ import math
 import open3d as o3d
 import yaml
 
+from deformation import cad_deform_to_gmm
 from deformable_model import DeformableShapeModel
 
 import numpy as np
@@ -37,6 +38,33 @@ def apply_manual_pre_rotation(pcd):
     pcd.transform(T)
     return pcd
 
+
+def crop_back_left_leg(pcd, x_thresh=7.3, y_thresh=-0.9):
+    """
+    Crop the back-left leg region from a point cloud based on observed GMM coords.
+
+    Args:
+        pcd (open3d.geometry.PointCloud): Input CAD point cloud.
+        x_thresh (float): Points with x <= this will be removed.
+        y_thresh (float): Points with y <= this will be removed.
+
+    Returns:
+        open3d.geometry.PointCloud: Cropped point cloud.
+    """
+    pts = np.asarray(pcd.points)
+    
+    # Remove points in the back-left corner
+    mask = ~((pts[:, 0] <= x_thresh) & (pts[:, 1] <= y_thresh))
+
+    cropped = o3d.geometry.PointCloud()
+    cropped.points = o3d.utility.Vector3dVector(pts[mask])
+
+    if pcd.has_colors():
+        cropped.colors = o3d.utility.Vector3dVector(np.asarray(pcd.colors)[mask])
+    if pcd.has_normals():
+        cropped.normals = o3d.utility.Vector3dVector(np.asarray(pcd.normals)[mask])
+
+    return cropped
 
 from scipy.spatial.transform import Rotation as R
 import numpy as np
@@ -299,6 +327,33 @@ def save_dashboard_all_views_2x4(initial_data, final_data, output_path="output/d
     fig.write_image(output_path, scale=scale)
     print(f"Saved 2x4 dashboard to: {output_path}")
 
+def crop_back_left_leg(pcd, x_thresh=8.0, y_thresh=-1.0):
+    """
+    Crop the back-left leg region from a point cloud based on observed GMM coords.
+
+    Args:
+        pcd (open3d.geometry.PointCloud): Input CAD point cloud.
+        x_thresh (float): Points with x <= this will be removed.
+        y_thresh (float): Points with y <= this will be removed.
+
+    Returns:
+        open3d.geometry.PointCloud: Cropped point cloud.
+    """
+    pts = np.asarray(pcd.points)
+    
+    # Remove points in the back-left corner
+    mask = ~((pts[:, 0] <= x_thresh) & (pts[:, 1] <= y_thresh))
+
+    cropped = o3d.geometry.PointCloud()
+    cropped.points = o3d.utility.Vector3dVector(pts[mask])
+
+    if pcd.has_colors():
+        cropped.colors = o3d.utility.Vector3dVector(np.asarray(pcd.colors)[mask])
+    if pcd.has_normals():
+        cropped.normals = o3d.utility.Vector3dVector(np.asarray(pcd.normals)[mask])
+
+    return cropped
+
 def plot_all_observations_multiview(initial_positions, output_dir="output", basename="initial_positions"):
     os.makedirs(output_dir, exist_ok=True)
     sensors = initial_positions["sensors"]
@@ -360,32 +415,83 @@ def estimate_scale(A, B):
     scale_B = np.linalg.norm(B.max(axis=0) - B.min(axis=0))
     return scale_B / scale_A
 
+def extract_back_left_leg(pcd, x_range=(7.8, 7.), y_range=(-1.4, -1.1), z_range=(0.0, 1.2)):
+    """
+    Extract the back-left leg region from a point cloud.
+
+    Args:
+        pcd (open3d.geometry.PointCloud): Input CAD point cloud.
+        x_range (tuple): Range of X coordinates to keep.
+        y_range (tuple): Range of Y coordinates to keep.
+        z_range (tuple): Range of Z coordinates to keep.
+
+    Returns:
+        open3d.geometry.PointCloud: Filtered point cloud.
+    """
+    pts = np.asarray(pcd.points)
+    mask = (
+        (pts[:, 0] >= x_range[0]) & (pts[:, 0] <= x_range[1]) &
+        (pts[:, 1] >= y_range[0]) & (pts[:, 1] <= y_range[1]) &
+        (pts[:, 2] >= z_range[0]) & (pts[:, 2] <= z_range[1])
+    )
+    filtered = o3d.geometry.PointCloud()
+    filtered.points = o3d.utility.Vector3dVector(pts[mask])
+    
+    if pcd.has_colors():
+        filtered.colors = o3d.utility.Vector3dVector(np.asarray(pcd.colors)[mask])
+    if pcd.has_normals():
+        filtered.normals = o3d.utility.Vector3dVector(np.asarray(pcd.normals)[mask])
+
+    return filtered
+
 def calibrate(data_path, config_file_path, sequence, num_iter=100, fixCentroids=False, num_points_param=400):
     pcds, num_sensors = generatePCDs.generate_data(data_path, config_file_path, sequence)
-    Xin = create_gt.create_init_pc(box_size=(0.5, 0.5, 0.5), num_points=num_points_param) + np.array([9.8, 4.75, 0.38])
+    Xin = create_gt.create_init_pc(box_size=(0.5, 0.5, 0.5), num_points=num_points_param) + np.array([7.4, -1.0, 0.5])
 
     # Use deformable CAD mesh as initial shape
-    shape_model = DeformableShapeModel("chair_watertight.obj")
+    shape_model = DeformableShapeModel("chair_simplified.obj")
 
     # Optional: center mesh or transform into approximate global frame
     center = shape_model.mesh.get_center()
     shape_model.mesh.translate(-center)
-    shape_model.mesh.translate([9.8, 4.75, 0.38])
+    shape_model.mesh.translate([7.5, -1.0, 0.5])
     shape_model.vertices = np.asarray(shape_model.mesh.vertices)  # ensure updated
     print(shape_model.vertices.shape)
     num_points = num_points_param  # or any N you want for your latent shape
 
     cad_pc = shape_model.mesh.sample_points_uniformly(number_of_points=num_points)
     cad_pts = np.asarray(cad_pc.points).astype(np.float64)
-    
-    Xin = cad_pts.copy()
 
     V = [np.array(cloud.points) for cloud in pcds]
-    scale = estimate_scale(shape_model.vertices, V[0])
-    print('scale: ' , scale)
+
     nObs = len(V)
     print('nObs before batch', nObs)
 
+
+    scale = estimate_scale(shape_model.vertices, V[0])
+    print('scale: ' , scale)
+    shape_model.mesh.scale(scale, center=shape_model.mesh.get_center())
+
+
+    # Extract the rotated points
+    cad_pc = shape_model.mesh.sample_points_uniformly(number_of_points=num_points)
+    cad_pts = np.asarray(cad_pc.points).astype(np.float64)
+    center = cad_pc.get_center()
+
+    # Define the rotation: 90 degrees about X-axis
+    r = R.from_euler('xz', [90,-45], degrees=True)
+    T = np.eye(4)
+    T[:3, :3] = r.as_matrix()
+
+    # Apply the transformation: translate to origin, rotate, then translate back
+    cad_pc.translate(-center)
+    cad_pc.transform(T)
+    cad_pc.translate(center)
+    # cropped_cad = extract_back_left_leg(cad_pc)
+    cad_pts = np.asarray(cad_pc.points).astype(np.float64)
+    
+    Xin = cad_pts.copy()
+    
     batch_size = 0
     if batch_size:
         
@@ -475,6 +581,42 @@ def calibrate(data_path, config_file_path, sequence, num_iter=100, fixCentroids=
     with open("/app/output/gmmcalib_result.pkl", "wb") as f:
         pickle.dump(gmmcalib_result, f) 
 
+    # Step 1: Convert GMM (X.T) to point cloud
+    gmm_pc = o3d.geometry.PointCloud()
+    gmm_pc.points = o3d.utility.Vector3dVector(X.T)
+
+    # Step 2: Align CAD mesh to GMM via ICP
+    cad_pc = shape_model.mesh.sample_points_uniformly(500)
+    icp_result = o3d.pipelines.registration.registration_icp(
+        source=cad_pc,
+        target=gmm_pc,
+        max_correspondence_distance=0.1,
+        init=np.eye(4),
+        estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint()
+    )
+    shape_model.mesh.transform(icp_result.transformation)
+
+    # Before deformation
+    cad_pts = np.asarray(shape_model.mesh.sample_points_uniformly(number_of_points=500).points)
+    gmm_means = X
+    gmm_pts = gmm_means.T
+
+    # PCA or ICP alignment
+    Rt = pca_align(cad_pts, gmm_pts)
+    T = np.eye(4)
+    T[:3, :3] = Rt
+    shape_model.mesh.transform(T)
+
+    deformed_mesh = cad_deform_to_gmm(shape_model, X)
+    deformed_pc = deformed_mesh.sample_points_uniformly(number_of_points=500)
+    # points = np.asarray(shape_model.mesh.sample_points_uniformly(number_of_points=500).points) 
+    # X = points.T
+    # X = np.asarray(deformed_pc.points).T
+    pts = np.asarray(deformed_mesh.sample_points_uniformly(500).points)
+    print("Sampled points stats:\n", np.min(pts, axis=0), np.max(pts, axis=0))
+
+    print('X', X.shape)
+
     # refine = False
     # if refine:
     #     print("\n### Aligning CAD model to GMM shape ###")
@@ -563,7 +705,7 @@ def calibrate(data_path, config_file_path, sequence, num_iter=100, fixCentroids=
     #     print('Translation (x, y, z) before:', translation_before)
     #     print('euler angles (rad)', euler_angles_rad_new)
     
-    return T_final, initial_positions, final_registrations
+    return T_final, initial_positions, final_registrations, Xin, X.T
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run calibration script")
