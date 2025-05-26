@@ -13,13 +13,20 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-def save_dashboard_all_views_2x4_with_text(
+import os
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+def save_dashboard_all_views_2x5_with_text(
     initial_data,
     final_data,
     config_params,
     output_error,
+    Xin,
+    X,
     output_path="output/dashboard_annotated.png",
-    width=2400,
+    width=3000,
     height=1200,
     scale=2
 ):
@@ -44,11 +51,11 @@ def save_dashboard_all_views_2x4_with_text(
     final_traces = build_trace(final_data["pcd_list"], final_data["num_obs"])
 
     fig = make_subplots(
-        rows=2, cols=4,
-        specs=[[{'type': 'scene'}]*4, [{'type': 'scene'}]*4],
+        rows=2, cols=5,
+        specs=[[{'type': 'scene'}]*5, [{'type': 'scene'}]*5],
         subplot_titles=[
-            "Initial (Top)", "Initial (Side)", "Initial (Front)", "Initial (Iso)",
-            "Final (Top)", "Final (Side)", "Final (Front)", "Final (Iso)"
+            "Initial (Top)", "Initial (Side)", "Initial (Front)", "Initial (Iso)", "Initial GMM (Iso)",
+            "Final (Top)", "Final (Side)", "Final (Front)", "Final (Iso)", "Final GMM (Iso)"
         ]
     )
 
@@ -58,6 +65,7 @@ def save_dashboard_all_views_2x4_with_text(
         "front": dict(eye=dict(x=0.001, y=2.5, z=0.001)),
         "iso": dict(eye=dict(x=1.5, y=1.5, z=1.5)),
     }
+
     views = ["top", "side", "front", "iso"]
 
     for i, view in enumerate(views):
@@ -65,29 +73,50 @@ def save_dashboard_all_views_2x4_with_text(
             fig.add_trace(trace, row=1, col=i+1)
         for trace in final_traces:
             fig.add_trace(trace, row=2, col=i+1)
-        fig.update_scenes(camera=cameras[view], row=1, col=i+1)
-        fig.update_scenes(camera=cameras[view], row=2, col=i+1)
+            fig.update_scenes(
+                camera=cameras[view],
+                aspectmode="data",
+                row=1, col=i+1
+            )
+            fig.update_scenes(
+                camera=cameras[view],
+                aspectmode="data",
+                row=2, col=i+1
+            )
 
-    fig.update_layout(
-        height=height,
-        width=width,
-        margin=dict(l=20, r=20, t=100, b=20),
-    )
 
-    # Add annotations for parameters and errors
-    y_offset = 1.15
-    lines = []
-    lines.append("CONFIG:")
+    # GMM Xin (initial GMM means, iso view, top row, col 5)
+    fig.add_trace(go.Scatter3d(
+        x=Xin[:, 0], y=Xin[:, 1], z=Xin[:, 2],
+        mode='markers',
+        marker=dict(size=3, color='green'),
+        name='Xin',
+        showlegend=False
+    ), row=1, col=5)
+    fig.update_scenes(camera=cameras["iso"], aspectmode="data",row=1, col=5)
+
+    # GMM X (final GMM means, iso view, bottom row, col 5)
+    fig.add_trace(go.Scatter3d(
+        x=X[:, 0], y=X[:, 1], z=X[:, 2],
+        mode='markers',
+        marker=dict(size=3, color='orange'),
+        name='X',
+        showlegend=False
+    ), row=2, col=5)
+    fig.update_scenes(camera=cameras["iso"], aspectmode="data", row=2, col=5)
+
+    # Annotations for config + output error
+    lines = ["CONFIG:"]
     for k, v in config_params.items():
         lines.append(f"{k}: {v}")
-    lines.append("\nOUTPUT ERROR (deg, m):")
+    lines.append("OUTPUT ERROR (deg, m):")
     for k, v in output_error.items():
         lines.append(f"{k}: {v:.3f}")
 
     fig.add_annotation(
         text="<br>".join(lines),
         xref="paper", yref="paper",
-        x=0, y=0.5,
+        x=0.0, y=0.5,
         showarrow=False,
         align="left",
         font=dict(size=14),
@@ -95,9 +124,16 @@ def save_dashboard_all_views_2x4_with_text(
         borderwidth=1
     )
 
+    fig.update_layout(
+        height=height,
+        width=width,
+        margin=dict(l=20, r=20, t=100, b=20),
+    )
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     fig.write_image(output_path, scale=scale)
-    print(f"Saved 2x4 annotated dashboard to: {output_path}")
+    print(f"✅ Saved dashboard to: {output_path}")
+
 
 # hack to dynamically set use_noise parameter in GMMCalib config yaml
 def update_config_param(input_yaml, output_yaml, field, new_value):
@@ -212,7 +248,7 @@ def analyze():
 
                                 # run calibration, record execution time
                                 start_time = time.time()
-                                T_final, initial_positions, final_registrations = calibrate(data_path, tmpfile.name, sequence, iter_param, fix_centroid_param, num_points_param)
+                                T_final, initial_positions, final_registrations, Xin, X = calibrate(data_path, tmpfile.name, sequence, iter_param, fix_centroid_param, num_points_param)
                                 end_time = time.time() 
                                 execution_time = end_time - start_time 
                                 
@@ -306,9 +342,11 @@ def analyze():
                                         log.info(f'{labels[idx]}: {errors[idx]:.3f} <= {thresholds[idx]}')
 
                                 output_errors = errors
-                                save_dashboard_all_views_2x4_with_text(
+                                save_dashboard_all_views_2x5_with_text(
                                     initial_data=initial_positions,
                                     final_data=final_registrations,
+                                    Xin=Xin,
+                                    X=X,
                                     config_params={
                                         "Noise": noise_param,
                                         "FixCentroids": fix_centroid_param,
