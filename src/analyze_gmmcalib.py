@@ -18,6 +18,19 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+def pose_error(R_pred, t_pred, R_gt, t_gt):
+    """
+    Returns (angle_error_rad, translation_error_m)
+    Angle = geodesic distance on SO(3)
+    Translation = Euclidean distance after putting both poses in same frame
+    """
+    R_err = R_gt.T @ R_pred                       # relative rotation
+    angle = np.arccos(np.clip((np.trace(R_err) - 1) / 2.0, -1.0, 1.0))
+
+    t_err = R_gt.T @ (t_pred - t_gt)              # bring to gt frame
+    trans = np.linalg.norm(t_err)
+    return angle, trans
+
 def save_dashboard_all_views_2x5_with_text(
     initial_data,
     final_data,
@@ -252,31 +265,39 @@ def analyze():
                                 end_time = time.time() 
                                 execution_time = end_time - start_time 
                                 
-                                ## write out rotation (euler angles: roll, pitch, yaw), and translation (tx, ty, tz)
-                                # Extract rotation matrix (top-left 3x3)
-                                rotation_matrix = T_final[:3, :3]
+                                # ------------------------------------------------------------------
+                                # ❶  Ground-truth pose you injected (rotation_error_param is in deg)
+                                R_gt = R.from_euler('xyz',
+                                                    rotation_error_param,       # list in degrees
+                                                    degrees=True).as_matrix()    # (3,3)
+                                t_gt = np.asarray(translation_error_param)       # (3,)
 
-                                # Convert rotation matrix to Euler angles (degrees)
-                                euler_angles = R.from_matrix(rotation_matrix).as_euler('xyz', degrees=False)  # Roll, Pitch, Yaw
-                                euler_angles_deg = R.from_matrix(rotation_matrix).as_euler('xyz', degrees=True)  # Roll, Pitch, Yaw
+                                # ❷  Predicted pose returned by calibrate()
+                                R_pred = T_final[:3, :3]                         # (3,3)
+                                t_pred = T_final[:3, 3]                          # (3,)
 
-                                # Extract translation components (X, Y, Z)
-                                translation_vector = T_final[:3, 3]
-                                x_translation, y_translation, z_translation = translation_vector
+                                # ❸  Pose error in the *same* reference frame
+                                R_err  = R_gt.T @ R_pred                         # relative rotation
+                                t_err  = R_gt.T @ (t_pred - t_gt)                # relative translation
+                                print("pose error (deg, cm):",
+                                    np.degrees(np.linalg.norm(R.from_matrix(R_err).as_rotvec())),
+                                    np.linalg.norm(t_err)*100)
+                                # invert predicted pose and see if error plummets
+                                R_pred_inv = R_pred.T
+                                t_pred_inv = -R_pred.T @ t_pred
 
-                                print('euler angles', euler_angles_deg)
-                                print('translation', translation_vector)
-                                print('angle error', rotation_error_param)
-                                print('translation error', translation_error_param)
-                            
-                                errors = [
-                                    euler_angles[0] - math.radians(rotation_error_param[0]),
-                                    euler_angles[1] - math.radians(rotation_error_param[1]),
-                                    euler_angles[2] - math.radians(rotation_error_param[2]),
-                                    x_translation - translation_error_param[0],
-                                    y_translation - translation_error_param[1],
-                                    z_translation - translation_error_param[2],
-                                ]
+                                ang1, trans1 = pose_error(R_pred,      t_pred,      R_gt, t_gt)
+                                ang2, trans2 = pose_error(R_pred_inv,  t_pred_inv,  R_gt, t_gt)
+                                print("error direct :", np.degrees(ang1), trans1*100, "cm")
+                                print("error inverted:", np.degrees(ang2), trans2*100, "cm")
+
+                                # ❹  Convert to roll / pitch / yaw (rad)  &  xyz (m)
+                                roll_err, pitch_err, yaw_err = R.from_matrix(R_err).as_euler('xyz', degrees=False)
+                                x_err,    y_err,    z_err    = t_err
+
+                                errors = [roll_err, pitch_err, yaw_err, x_err, y_err, z_err]
+                                # ------------------------------------------------------------------
+
                                 # Prepare data for logging
                                 # algorithm, dataset, config file, num iterations, sequence, with or without noise, fix centroids, data
                                 new_data = [
@@ -296,12 +317,12 @@ def analyze():
                                     translation_error_param[0],
                                     translation_error_param[1],
                                     translation_error_param[2],
-                                    euler_angles[0], 
-                                    euler_angles[1],
-                                    euler_angles[2], 
-                                    x_translation, 
-                                    y_translation, 
-                                    z_translation, 
+                                    roll_err,
+                                    pitch_err,
+                                    yaw_err,
+                                    t_pred[0], 
+                                    t_pred[1], 
+                                    t_pred[2], 
                                     errors[0],
                                     errors[1],
                                     errors[2],
