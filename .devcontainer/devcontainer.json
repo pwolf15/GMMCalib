@@ -1,0 +1,17 @@
+{
+    "name": "GMM Calibration Dev Container",
+    "image": "gmmcalib:latest",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "workspaceFolder": "/workspace",
+    "runArgs": [
+      "--init"
+    ],
+    "settings": {
+      "terminal.integrated.defaultProfile.linux": "bash"
+    },
+    "extensions": [
+      "ms-vscode-remote.remote-containers"
+    ],
+    "postCreateCommand": "echo 'Dev container ready!'"
+  }
+  

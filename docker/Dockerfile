@@ -4,6 +4,7 @@ RUN apt-get update \
         gcc \
         libgl1-mesa-glx \
         libgomp1 \
+        git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
