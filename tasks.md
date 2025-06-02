@@ -1,3 +1,18 @@
+/ generate new dataset with known location and extrinsics
+/ add noise to generation (https://gitlab.lrz.de/av2.0/carla/-/blob/carla_0.9.15_tum/Docs/ref_sensors.md#lidar-sensor)
+/ sensor also outputs timestamp, frame, and transform
+/ get exact position of object
+/ log conditions of data generation
+
+/ dataset access
+* scannet request
+* shapenet request
+* partnet request
+
+/ cleanup code
+/ avoid rereading files for iterations
+/ add back move points to mesh
+
 # GMM Calib Summary
 
 * GMMCalib deals with the problem of LIDAR-LIDAR calibration for autonomous vehicles. 
