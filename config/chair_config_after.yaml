@@ -1,12 +1,24 @@
 number_of_sensors: 2
 transform_sensor_1:
-- [-0.346116, 0.016406, -0.006109, 2.311990, 0.581660, 1.610310]
+transform_sensor_1:
+  - [-0.3461248, 0.0165291, -0.0162606, 2.31205, 0.581505, 1.610277] #[roll, pitch, yaw, x, y z]
 transform_sensor_2:
-- [0.355125, 0.016529, -0.006128, 2.311844, -0.654844, 1.612851]
+  - [0.3551248, 0.0165291, 0.0061281, 2.311906, -0.664888, 1.612698] 
+# whole scene
+# min_bound:
+# - [-20, -20, -1.0]
+# max_bound:
+# - [20, 20, 1]
+# chair with ground
+# min_bound:
+# - [6.8, -0.5, -1.0]
+# max_bound:
+# - [8, 0.5, 1]
+# only chair
 min_bound:
-- [5, -2, 0.05]
+- [6.8, -0.5, -0.05]
 max_bound:
-- [10, 2, 1]
+- [8, 0.5, 1]
 is_cube_data: 1
 use_noise: 0
 use_carla_transform: 0
