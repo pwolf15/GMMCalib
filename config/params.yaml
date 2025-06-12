@@ -1,7 +1,7 @@
 sim_iterations: 1
-obs_params: [50]
-iter_params: [50]
-noise_params: [0]
+obs_params: [20]
+iter_params: [100]
+noise_params: [1]
 fix_centroid_params: [0]
 rotation_error_params:
   - [0, 0, 0]
@@ -13,7 +13,7 @@ inject_error: True
 config_type: chair
 
 # display and save parameters
-display: False
+display: True
 save_images: False
 
 paths:
@@ -34,8 +34,20 @@ paths:
     config: "./config/box_large_config.yaml"
     start: 0
   chair:
-    data: "./recordings/chair_1746609454"
+    # data: "./recordings/chair_1746609454"
+    # data: "./recordings/chair_1748880567"
+    # data: "./recordings/chair_1749048297"
+    # data: "./recordings/chair_1749151144"
+    data: "./recordings/chair_1749157570"
+    # data: "./recordings/chair_1749158804" # 3 chairs
+    # # data: "./recordings/chair_1749219698"
+    # # data: "./recordings/chair_1749164013"
     config: "./config/chair_config_after.yaml"
+    start: 0
+  three_chairs:
+    chair:
+    data: "./recordings/chair_1749158804" # 3 chairs
+    config: "./config/three_chairs_good.yaml"
     start: 0
   default:
     data: "./data"
