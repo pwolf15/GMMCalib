@@ -144,8 +144,13 @@ def bundle_adjustment(V, X, alpha, num_sensors, num_obs, initial_R, initial_t):
                 latent = X[:, k]  # GMM centroid
                 normalized_weight = w / (np.max(weights) + 1e-8)
 
+                k = np.argmax(weights)  # strongest GMM match
+                if weights[k] < 1e-4:  # optionally, filter weak matches
+                    continue
+                latent = X[:, k]
                 cost_fn = LidarResidual(observed, latent, normalized_weight)
-                problem.add_residual_block(cost_fn, None, [extrinsics[obs_idx]])  # NOT double-nested
+                loss = pyceres.CauchyLoss(1.0)
+                problem.add_residual_block(cost_fn, loss, [extrinsics[obs_idx]])  # NOT double-nested
 
 
     options = pyceres.SolverOptions()
@@ -462,15 +467,16 @@ def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False, num_sensors
     assert len(R) == M, f"Expected {M} sensor extrinsics, got {len(R)}"
     assert len(t) == M
 
-    optimized_R, optimized_t = bundle_adjustment(TV, X, alpha, num_sensors, len(TV)//2, R, t)
- 
+
     Q = np.divide(1, Q)
     print('T shape, len(T)', len(T))
     
     new_T = []
 
-    use_ba = True
+    use_ba = False
     if use_ba:
+        optimized_R, optimized_t = bundle_adjustment(TV, X, alpha, num_sensors, len(TV)//2, R, t)
+ 
         for i in range(len(T)):
             t_list = []
             R_list = []
@@ -482,7 +488,7 @@ def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False, num_sensors
         for i in range(len(T)):
             t_list = []
             R_list = []
-            for j in range(len(optimized_R)):
+            for j in range(len(R)):
                 R_list.append(R[j])
                 t_list.append(t[j])
             new_T.append((R_list, t_list))
