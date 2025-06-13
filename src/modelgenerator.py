@@ -4,6 +4,176 @@ import numpy as np
 #########           M O D E L    G E N E R A T I O N     ##########################
 ###################################################################################
 
+import pyceres
+import numpy as np
+
+def angle_axis_rotate_point(rot, point):
+    """
+    Rotate a point using an angle-axis vector.
+
+    Parameters:
+    - rot: 3D angle-axis rotation vector
+    - point: 3D point to rotate
+
+    Returns:
+    - Rotated 3D point
+    """
+    theta = np.linalg.norm(rot)
+    if theta < 1e-8:
+        return point.copy()
+
+    axis = rot / theta
+    axis = axis.reshape(3)
+    point = point.reshape(3)
+
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+    dot = np.dot(axis, point)
+    cross = np.cross(axis, point)
+
+    return (cos_theta * point +
+            (1 - cos_theta) * dot * axis +
+            sin_theta * cross)
+
+# Residual function for pyceres
+class LidarResidual(pyceres.CostFunction):
+    def __init__(self, observed_point, latent_point, weight):
+        super().__init__()
+        self.set_num_residuals(3)
+        self.set_parameter_block_sizes([6])
+
+        self.observed_point = np.asarray(observed_point, dtype=np.float64).reshape(3,)
+        self.latent_point = np.asarray(latent_point, dtype=np.float64).reshape(3,)
+        self.weight = float(np.squeeze(weight))
+
+    def Evaluate(self, parameters, residuals, jacobians):
+        extrinsics = parameters[0]  # shape (6,)
+        rot_vec = extrinsics[:3]
+        t_vec = extrinsics[3:]
+
+        theta = np.linalg.norm(rot_vec)
+        if theta < 1e-8:
+            R = np.eye(3)
+            dR_drot = np.zeros((3, 3, 3))  # dR/d(rot) is zero
+        else:
+            axis = rot_vec / theta
+            K = np.array([
+                [0, -axis[2], axis[1]],
+                [axis[2], 0, -axis[0]],
+                [-axis[1], axis[0], 0]
+            ])
+            R = (
+                np.eye(3) * np.cos(theta)
+                + (1 - np.cos(theta)) * np.outer(axis, axis)
+                + np.sin(theta) * K
+            )
+
+            # Approximate Jacobian dR/d(rot_vec) using finite difference
+            dR_drot = np.zeros((3, 3, 3))
+            eps = 1e-6
+            dR_drot = np.zeros((3, 3))  # residual_dim x rot_param_dim
+            eps = 1e-6
+            for j in range(3):  # for each rotation parameter
+                d_rot = np.zeros(3)
+                d_rot[j] = eps
+                p_plus = angle_axis_rotate_point(rot_vec + d_rot, self.observed_point)
+                p_minus = angle_axis_rotate_point(rot_vec - d_rot, self.observed_point)
+                dp = (p_plus - p_minus) / (2 * eps)
+                dR_drot[:, j] = dp
+
+        p_transformed = angle_axis_rotate_point(rot_vec, self.observed_point) + t_vec
+        residual = self.weight * (self.latent_point - p_transformed)
+        for i in range(3):
+            residuals[i] = residual[i]
+
+        if jacobians is not None and jacobians[0] is not None:
+            J = jacobians[0].reshape(3, 6)
+
+            # Rotation Jacobian (finite difference)
+            eps = 1e-6
+            for j in range(3):  # for each rotation parameter
+                d_rot = np.zeros(3)
+                d_rot[j] = eps
+                p_plus = angle_axis_rotate_point(rot_vec + d_rot, self.observed_point)
+                p_minus = angle_axis_rotate_point(rot_vec - d_rot, self.observed_point)
+                dp = (p_plus - p_minus) / (2 * eps)
+                for i in range(3):
+                    J[i, j] = -self.weight * dp[i]
+
+            # Translation Jacobian: identity scaled
+            J[:, 3:6] = -self.weight * np.eye(3)
+
+        return True
+
+# Bundle Adjustment integration
+def bundle_adjustment(V, X, alpha, num_sensors, num_obs, initial_R, initial_t):
+    problem = pyceres.Problem()
+
+    import cv2
+
+    extrinsics = []
+
+    for R_i, t_i in zip(initial_R, initial_t):
+        
+        # convert rotations to angle-axis vectors
+        rot_vec, _ = cv2.Rodrigues(R_i)        # shape (3,1)
+        rot_vec = rot_vec.flatten()            # shape (3,)
+
+        # flatten translation vectors
+        t_vec = np.array(t_i).reshape(-1)      # guarantees shape (3,)
+
+        assert rot_vec.shape == (3,), f"rot_vec shape: {rot_vec.shape}"
+        assert t_vec.shape == (3,), f"t_vec shape: {t_vec.shape}"
+
+        # create 6D pose vector per observation
+        extrinsics.append(np.hstack([rot_vec, t_vec]))
+
+    extrinsics_flat = np.array(extrinsics).flatten()
+
+    print(len(alpha))
+    print(alpha[0].shape)
+    print(V[0].shape)
+    
+    for obs_idx, (V_obs, alpha_obs) in enumerate(zip(V, alpha)):
+        for pt_idx in range(V_obs.shape[1]):  # each point
+            weights = np.asarray(alpha[obs_idx][pt_idx, :]).flatten()
+            observed = V_obs[:, pt_idx]  # shape (3,)
+            for k, w in enumerate(weights):
+                if w < 1e-4:
+                    continue  # skip weak associations
+                latent = X[:, k]  # GMM centroid
+                normalized_weight = w / (np.max(weights) + 1e-8)
+
+                cost_fn = LidarResidual(observed, latent, normalized_weight)
+                problem.add_residual_block(cost_fn, None, [extrinsics[obs_idx]])  # NOT double-nested
+
+
+    options = pyceres.SolverOptions()
+    options.linear_solver_type = pyceres.LinearSolverType.DENSE_SCHUR
+    options.minimizer_progress_to_stdout = True
+
+    # print("Initial cost estimate:", problem.evaluate(extrinsics)[0])
+
+    summary = pyceres.SolverSummary()
+    print("Before BA:", extrinsics[0])
+    pyceres.solve(options, problem, summary)
+
+    print(summary.BriefReport())
+    print("After BA: ", extrinsics[0])
+
+    num_observations = len(initial_R) 
+    optimized_R = []
+    optimized_t = []
+    optimized_extrinsics = np.array(extrinsics)
+    for i in range(num_observations):
+        rot_vec = optimized_extrinsics[i, :3]
+        t_vec = optimized_extrinsics[i, 3:]
+        R_i, _ = cv2.Rodrigues(rot_vec)
+        optimized_R.append(R_i)
+        optimized_t.append(t_vec)
+
+    return optimized_R, optimized_t
+
 def get_registrations(V, nObs, num_sensors):
 
     initial_positions = {}
@@ -207,6 +377,7 @@ def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False, num_sensors
     beta = np.divide(gamma, np.multiply(h, gamma+1))
     pk = np.transpose(pk)
     T = []
+    alpha = []
 
     for it in range(maxNumIter):
         print("GMM Iteration: ", it)
@@ -288,8 +459,37 @@ def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False, num_sensors
         if updatePriors:
             pk = den / ((gamma+1)*sum(den))
  
+    assert len(R) == M, f"Expected {M} sensor extrinsics, got {len(R)}"
+    assert len(t) == M
+
+    optimized_R, optimized_t = bundle_adjustment(TV, X, alpha, num_sensors, len(TV)//2, R, t)
+ 
     Q = np.divide(1, Q)
-    return X, TV, T, pk
+    print('T shape, len(T)', len(T))
+    
+    new_T = []
+
+    use_ba = True
+    if use_ba:
+        for i in range(len(T)):
+            t_list = []
+            R_list = []
+            for j in range(len(optimized_R)):
+                R_list.append(optimized_R[j])
+                t_list.append(optimized_t[j])
+            new_T.append((R_list, t_list))
+    else:
+        for i in range(len(T)):
+            t_list = []
+            R_list = []
+            for j in range(len(optimized_R)):
+                R_list.append(R[j])
+                t_list.append(t[j])
+            new_T.append((R_list, t_list))
+            
+    print('T shape, len(T)', len(T))
+
+    return X, TV, new_T, pk
 
 
 def sse(A, B):
