@@ -495,6 +495,19 @@ def jgmm(V, Xin, maxNumIter, socket_client=None, fixCentroids=False, num_sensors
             
     print('T shape, len(T)', len(T))
 
+    export_labels = True
+    if export_labels:
+        # For each view i, alpha[i] is shape (K, N_i)
+        # We want an array of size N_i with the argmax cluster per point
+        labels_per_view = [np.argmax(a, axis=1) for a in alpha]  # list of M arrays
+
+        # Now write them out. You can choose one file per view:
+        for i, labels in enumerate(labels_per_view):
+            fname = f"labels_sensor_{i}.txt"
+            # write one integer per line, no brackets
+            np.savetxt(fname, labels.astype(int), fmt='%d')
+            print(f"[JGMM] exported point-to-cluster labels to {fname}")
+            
     return X, TV, new_T, pk
 
 

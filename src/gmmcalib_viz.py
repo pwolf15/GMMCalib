@@ -719,7 +719,7 @@ def calibrate(data_path, config_file_path, sequence, num_iter=100, fixCentroids=
     if save_images:
         plot_all_observations_multiview(initial_positions)
     
-    use_raycast = False
+    use_raycast = True
     if use_raycast:
         import numpy as np
         from scipy.spatial.transform import Rotation as R
