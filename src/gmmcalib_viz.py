@@ -719,139 +719,141 @@ def calibrate(data_path, config_file_path, sequence, num_iter=100, fixCentroids=
     if save_images:
         plot_all_observations_multiview(initial_positions)
     
+    use_raycast = False
+    if use_raycast:
+        import numpy as np
+        from scipy.spatial.transform import Rotation as R
+
+        # ─── Hard-coded OS1 front-left sensor extrinsic ───
+        # Translation (meters)
+        t_fl = np.array([2.312053, -0.581505, 1.610277])
+
+        # Euler angles (roll, pitch, yaw) in degrees from your YAML
+        # roll  = –19.831°, pitch = 0.94°, yaw = 0.35°
+        r_fl = R.from_euler('xyz', [-19.831, 0.94, 0.35], degrees=True).as_matrix()
+
+        T_FL = np.eye(4)
+        T_FL[:3, :3] = r_fl
+        T_FL[:3, 3]   = t_fl
+
+        # ─── Hard-coded OS1 front-right sensor extrinsic ───
+        # Translation (meters)
+        t_fr = np.array([2.311906,  0.655000, 1.612698])
+
+        # Euler angles (roll, pitch, yaw) in degrees
+        # roll  = 20.3471522405°, pitch = 0.947047669152°, yaw = 0.351114266435°
+        r_fr = R.from_euler('xyz', [20.3471522405, 0.947047669152, 0.351114266435],
+                            degrees=True).as_matrix()
+
+        T_FR = np.eye(4)
+        T_FR[:3, :3] = r_fr
+        T_FR[:3, 3]   = t_fr
+
+        # Now T_FL and T_FR are your sensor→vehicle transforms
+        print("T_FL:\n", T_FL)
+        print("T_FR:\n", T_FR)
+
+
+        V_synth = [
+            raycast_pc(T_FL),   # into vehicle frame
+            raycast_pc(T_FR),
+        ]
+        # 1) Transpose to (N_i, 3) and stack along rows
+        # V_synth[i] is (3, Ni) → transpose to (Ni, 3)
+        pts_fl = V_synth[0].T   # (N1,3)
+        pts_fr = V_synth[1].T   # (N2,3)
+
+        # now stack rows
+        all_pts = np.vstack((pts_fl, pts_fr))   # (N1+N2, 3)
+
+        # build an Open3D cloud from (N,3)
+        import open3d as o3d
+        merged_pcd = o3d.geometry.PointCloud()
+        merged_pcd.points = o3d.utility.Vector3dVector(all_pts)
+
+        # optional: voxel‐downsample to remove close duplicates
+        merged_pcd = merged_pcd.voxel_down_sample(voxel_size=0.01)
+
+        # back to your latent shape as (3,K)
+        Xin = all_pts #np.asarray(merged_pcd.points)
+
+        import numpy as np
+        from scipy.spatial.transform import Rotation as R
+
+        # 1) Build the “truth” rotation you want to apply:
+        #    e.g. rotate 90° about X, then 180° about Z (or whatever your ground‐truth is)
+        R_truth = R.from_euler('xzy', [90.0, 180.0, 0.0], degrees=True).as_matrix()  # shape (3,3)
+
+        # 2) Xin is (3, N) — apply R_truth on the left:
+        Xin_rotated = R_truth @ Xin.T   # still shape (3, N)
+
+        # 3) If you also need to apply that to your Open3D point‐cloud:
+        # import open3d as o3d
+        # pcd = o3d.geometry.PointCloud()
+        # pcd.points = o3d.utility.Vector3dVector(Xin_rotated.T)
+        Xin = Xin_rotated.T
+
+        import open3d as o3d
+        import numpy as np
+
+        # Assume V is your list of numpy arrays, each shape (Ni,3)
+        nObs = len(V)
+        idx1 = 0
+        idx2 = nObs // 2
+
+        # 1) Build Open3D clouds
+        pcd1 = o3d.geometry.PointCloud()
+        pcd1.points = o3d.utility.Vector3dVector(V[idx1])
+
+        pcd2 = o3d.geometry.PointCloud()
+        pcd2.points = o3d.utility.Vector3dVector(V[idx2])
+
+        # 2) (Optional) down‐sample to speed up & reduce noise
+        voxel_size = 0.05  # 5 cm, tweak as needed
+        pcd1_ds = pcd1.voxel_down_sample(voxel_size)
+        pcd2_ds = pcd2.voxel_down_sample(voxel_size)
+
+        # 3) Estimate normals if you want Point‐to‐Plane ICP
+        pcd1_ds.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
+            radius=voxel_size * 2, max_nn=30))
+        pcd2_ds.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
+            radius=voxel_size * 2, max_nn=30))
+
+        # 4) Choose your initial guess (identity if unknown, or your YAML‐derived T_init)
+        init_guess = np.eye(4)
+
+        # 5) Run ICP
+        reg = o3d.pipelines.registration.registration_icp(
+            source=pcd2_ds,             # map V[idx2] → V[idx1]
+            target=pcd1_ds,
+            max_correspondence_distance=0.1,  # 10 cm
+            init=init_guess,
+            estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane()
+        )
+
+        T_icp = reg.transformation
+        print("ICP result (sensor2→sensor1):\n", T_icp)
+        print("Fitness:", reg.fitness, " RMSE:", reg.inlier_rmse)
+        
+        # After ICP that aligned syn→real:
+        T_delta = reg.transformation
+
+        # How much in Z did ICP shift?
+        dz = T_delta[2,3]
+        print(f"Vertical correction: {dz:.4f} m")
+
+        T_icp = np.array([
+            [ 0.698597399,  0.715499398, -0.004720695,  0.174788181],
+            [-0.711513415,  0.695372122,  0.101026102,  5.60483795 ],
+            [ 0.0755667546,-0.0672177344,  0.994872576, -0.528958029],
+            [ 0.0,          0.0,          0.0,           1.0       ]
+        ])
+
     if client:
         client.emit("initial_positions", initial_positions)
 
         # send initial gmm means
         client.emit("gmm_means", {"Xin": Xin.tolist(), "X": Xin.tolist(), "num_iter": 0})
-
-    import numpy as np
-    from scipy.spatial.transform import Rotation as R
-
-    # ─── Hard-coded OS1 front-left sensor extrinsic ───
-    # Translation (meters)
-    t_fl = np.array([2.312053, -0.581505, 1.610277])
-
-    # Euler angles (roll, pitch, yaw) in degrees from your YAML
-    # roll  = –19.831°, pitch = 0.94°, yaw = 0.35°
-    r_fl = R.from_euler('xyz', [-19.831, 0.94, 0.35], degrees=True).as_matrix()
-
-    T_FL = np.eye(4)
-    T_FL[:3, :3] = r_fl
-    T_FL[:3, 3]   = t_fl
-
-    # ─── Hard-coded OS1 front-right sensor extrinsic ───
-    # Translation (meters)
-    t_fr = np.array([2.311906,  0.655000, 1.612698])
-
-    # Euler angles (roll, pitch, yaw) in degrees
-    # roll  = 20.3471522405°, pitch = 0.947047669152°, yaw = 0.351114266435°
-    r_fr = R.from_euler('xyz', [20.3471522405, 0.947047669152, 0.351114266435],
-                        degrees=True).as_matrix()
-
-    T_FR = np.eye(4)
-    T_FR[:3, :3] = r_fr
-    T_FR[:3, 3]   = t_fr
-
-    # Now T_FL and T_FR are your sensor→vehicle transforms
-    print("T_FL:\n", T_FL)
-    print("T_FR:\n", T_FR)
-
-
-    V_synth = [
-        raycast_pc(T_FL),   # into vehicle frame
-        raycast_pc(T_FR),
-    ]
-    # 1) Transpose to (N_i, 3) and stack along rows
-    # V_synth[i] is (3, Ni) → transpose to (Ni, 3)
-    pts_fl = V_synth[0].T   # (N1,3)
-    pts_fr = V_synth[1].T   # (N2,3)
-
-    # now stack rows
-    all_pts = np.vstack((pts_fl, pts_fr))   # (N1+N2, 3)
-
-    # build an Open3D cloud from (N,3)
-    import open3d as o3d
-    merged_pcd = o3d.geometry.PointCloud()
-    merged_pcd.points = o3d.utility.Vector3dVector(all_pts)
-
-    # optional: voxel‐downsample to remove close duplicates
-    merged_pcd = merged_pcd.voxel_down_sample(voxel_size=0.01)
-
-    # back to your latent shape as (3,K)
-    Xin = all_pts #np.asarray(merged_pcd.points)
-
-    import numpy as np
-    from scipy.spatial.transform import Rotation as R
-
-    # 1) Build the “truth” rotation you want to apply:
-    #    e.g. rotate 90° about X, then 180° about Z (or whatever your ground‐truth is)
-    R_truth = R.from_euler('xzy', [90.0, 180.0, 0.0], degrees=True).as_matrix()  # shape (3,3)
-
-    # 2) Xin is (3, N) — apply R_truth on the left:
-    Xin_rotated = R_truth @ Xin.T   # still shape (3, N)
-
-    # 3) If you also need to apply that to your Open3D point‐cloud:
-    # import open3d as o3d
-    # pcd = o3d.geometry.PointCloud()
-    # pcd.points = o3d.utility.Vector3dVector(Xin_rotated.T)
-    Xin = Xin_rotated.T
-
-    import open3d as o3d
-    import numpy as np
-
-    # Assume V is your list of numpy arrays, each shape (Ni,3)
-    nObs = len(V)
-    idx1 = 0
-    idx2 = nObs // 2
-
-    # 1) Build Open3D clouds
-    pcd1 = o3d.geometry.PointCloud()
-    pcd1.points = o3d.utility.Vector3dVector(V[idx1])
-
-    pcd2 = o3d.geometry.PointCloud()
-    pcd2.points = o3d.utility.Vector3dVector(V[idx2])
-
-    # 2) (Optional) down‐sample to speed up & reduce noise
-    voxel_size = 0.05  # 5 cm, tweak as needed
-    pcd1_ds = pcd1.voxel_down_sample(voxel_size)
-    pcd2_ds = pcd2.voxel_down_sample(voxel_size)
-
-    # 3) Estimate normals if you want Point‐to‐Plane ICP
-    pcd1_ds.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
-        radius=voxel_size * 2, max_nn=30))
-    pcd2_ds.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(
-        radius=voxel_size * 2, max_nn=30))
-
-    # 4) Choose your initial guess (identity if unknown, or your YAML‐derived T_init)
-    init_guess = np.eye(4)
-
-    # 5) Run ICP
-    reg = o3d.pipelines.registration.registration_icp(
-        source=pcd2_ds,             # map V[idx2] → V[idx1]
-        target=pcd1_ds,
-        max_correspondence_distance=0.1,  # 10 cm
-        init=init_guess,
-        estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane()
-    )
-
-    T_icp = reg.transformation
-    print("ICP result (sensor2→sensor1):\n", T_icp)
-    print("Fitness:", reg.fitness, " RMSE:", reg.inlier_rmse)
-    
-    # After ICP that aligned syn→real:
-    T_delta = reg.transformation
-
-    # How much in Z did ICP shift?
-    dz = T_delta[2,3]
-    print(f"Vertical correction: {dz:.4f} m")
-
-    T_icp = np.array([
-        [ 0.698597399,  0.715499398, -0.004720695,  0.174788181],
-        [-0.711513415,  0.695372122,  0.101026102,  5.60483795 ],
-        [ 0.0755667546,-0.0672177344,  0.994872576, -0.528958029],
-        [ 0.0,          0.0,          0.0,           1.0       ]
-    ])
 
     print("####### Perform Calibration and Model Generation. ########")
     X, TV, AllT, pk= jgmm(V=V, Xin=Xin, maxNumIter=num_iter, socket_client=client, num_sensors=num_sensors, fixCentroids=fixCentroids, save_images=save_images)
@@ -861,8 +863,8 @@ def calibrate(data_path, config_file_path, sequence, num_iter=100, fixCentroids=
     T_1 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2)]
     T_2 = [transformPCDs.homogeneous_transform(AllT[-1][0][i], AllT[-1][1][i].reshape(-1)) for i in range(nObs // 2, nObs)]
 
-    T_sensor1_to_vehicle = transformPCDs.mean_transform(T_1)
-    T_sensor2_to_vehicle = transformPCDs.mean_transform(T_2)
+    T_sensor1_to_vehicle = transformPCDs.mean_transform_so3(T_1)
+    T_sensor2_to_vehicle = transformPCDs.mean_transform_so3(T_2)
 
     # Print both transforms in config-ready YAML format
     print("\n# Global sensor-to-vehicle transforms in radians:")
@@ -897,6 +899,7 @@ def calibrate(data_path, config_file_path, sequence, num_iter=100, fixCentroids=
         pickle.dump(gmmcalib_result, f) 
 
     # Step 1: Convert GMM (X.T) to point cloud
+    import open3d as o3d
     gmm_pc = o3d.geometry.PointCloud()
     gmm_pc.points = o3d.utility.Vector3dVector(X.T)
 

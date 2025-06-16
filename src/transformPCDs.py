@@ -67,3 +67,20 @@ def mean_transform(T):
     translation_mean = np.mean(translation_list, axis=0)
     
     return euler_to_homogeneous(np.rad2deg(euler_mean)[0], np.rad2deg(euler_mean)[1], np.rad2deg(euler_mean)[2], translation_mean)
+
+def mean_transform_so3(T_list):
+    # extract the rotation‐vectors (axis*angle) and translations
+    rotvecs = np.stack([R.from_matrix(T[:3,:3]).as_rotvec()
+                        for T in T_list], axis=0)    # (N,3)
+    trans  = np.stack([T[:3,3] for T in T_list], axis=0)    # (N,3)
+
+    # mean in the tangent space
+    mean_rotvec = np.mean(rotvecs, axis=0)
+    mean_trans  = np.mean(trans, axis=0)
+
+    # back to the manifold
+    R_mean = R.from_rotvec(mean_rotvec).as_matrix()
+    T      = np.eye(4)
+    T[:3,:3] = R_mean
+    T[:3,3]  = mean_trans
+    return T

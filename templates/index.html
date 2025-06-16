@@ -158,6 +158,68 @@
         // ✅ Connect to WebSocket using Socket.IO
         const socket = io('http://127.0.0.1:5000');
 
+        let regTraces = [];
+        let gmmXinTrace = null;
+        let gmmXTrace = null;
+        let currentIter = 0;
+
+        function refreshRegistrations() {
+            const allTraces = [
+                ...regTraces,
+                ...(gmmXinTrace ? [gmmXinTrace] : []),
+                ...(gmmXTrace ? [gmmXTrace] : [])
+            ];
+
+            const layout = {
+                margin: { l: 0, r: 0, t: 20, b: 0 },
+                scene: { /* … same as before … */ },
+                title: { text: `Registration after ${currentIter} iterations` },
+                updatemenus: [ /* … your dropdown … */],
+                uirevision: "constant"
+            };
+
+            Plotly.react("registrations-plot", allTraces, layout);
+        }
+
+        /**
+        * Given the “registrations” payload, build an array of Plotly trace objects
+        * for every sensor & observation.
+        */
+        function buildRegistrationTraces(data) {
+            const sensors = data.sensors;
+            const numObs = data.num_obs;
+            const pcdList = data.pcd_list;
+
+            // assign each sensor a color
+            const colorMap = ["red", "blue", "green", "orange", "purple", "cyan"];
+            const sensorColors = {};
+            sensors.forEach((sensor, idx) => {
+                sensorColors[sensor] = colorMap[idx % colorMap.length];
+            });
+
+            const traces = [];
+            for (let sensorIdx = 0; sensorIdx < sensors.length; sensorIdx++) {
+                for (let obsIdx = 0; obsIdx < numObs; obsIdx++) {
+                    const pcd = pcdList[obsIdx + sensorIdx * numObs];
+                    const pts = pcd.points;
+
+                    traces.push({
+                        x: pts.map(p => p[0]),
+                        y: pts.map(p => p[1]),
+                        z: pts.map(p => p[2]),
+                        mode: "markers",
+                        type: "scatter3d",
+                        marker: { size: 2, color: sensorColors[sensors[sensorIdx]] },
+                        name: `Obs ${obsIdx + 1} - Sensor ${sensors[sensorIdx]}`,
+                        visible: true    // show all by default
+                    });
+                }
+            }
+
+            return traces;
+        }
+
+
 
         socket.on('connect', function () {
             console.log("✅ Connected to WebSocket Server!");
@@ -265,107 +327,10 @@
             Plotly.newPlot("init-pos-plot", allTraces, layout);
         });
 
-        socket.on('registrations', (data) => {
-            console.log('Received registrations');
-
-            const sensors = data.sensors;
-            const numObs = data.num_obs;
-            const pcdList = data.pcd_list;
-            console.log("sensors", sensors);
-            console.log("num obs", numObs);
-
-            const colorMap = ["red", "blue", "green", "orange", "purple", "cyan"];
-            const sensorColors = {};
-            sensors.forEach((sensor, index) => {
-                sensorColors[sensor] = colorMap[index % colorMap.length];
-            });
-
-            // ✅ Organize traces correctly
-            const allTraces = [];
-            for (let sensorIdx = 0; sensorIdx < sensors.length; sensorIdx++) {
-                for (let obsIdx = 0; obsIdx < numObs; obsIdx++) {
-                    const pcd = pcdList[obsIdx + sensorIdx * numObs];  // ✅ Correct indexing
-
-                    // console.log(`adding ${obsIdx + sensorIdx * numObs}, sensor ${sensorIdx}, obsIdx ${obsIdx}`)
-
-                    allTraces.push({
-                        x: pcd.points.map(p => p[0]),
-                        y: pcd.points.map(p => p[1]),
-                        z: pcd.points.map(p => p[2]),
-                        mode: "markers",
-                        type: "scatter3d",
-                        marker: { size: 2, color: sensorColors[sensors[sensorIdx]] || "blue" },
-                        name: `Obs ${obsIdx + 1} - Sensor ${sensors[sensorIdx]}`,
-                        visible: true
-                    });
-                }
-            }
-
-            // ✅ Create dropdown menu for observation selection
-            const dropdownOptions = [
-                {
-                    method: "update",
-                    args: [{ visible: Array(allTraces.length).fill(true) }],
-                    label: "All"
-                }
-            ];
-
-
-            for (let obsIdx = 0; obsIdx < numObs; obsIdx++) {
-                let visibilityArray = Array(allTraces.length).fill(false);
-
-                // ✅ Enable all sensors for a specific observation
-                for (let sensorIdx = 0; sensorIdx < sensors.length; sensorIdx++) {
-                    console.log(`obs: ${obsIdx}, sensor: ${sensorIdx}, idx: ${obsIdx + sensorIdx * numObs}`)
-                    visibilityArray[obsIdx + sensorIdx * numObs] = true;
-                }
-
-                dropdownOptions.push({
-                    method: "update",
-                    args: [{ visible: visibilityArray }],
-                    label: `Observation ${obsIdx + 1}`
-                });
-            }
-
-            const layout = {
-                margin: { l: 0, r: 0, t: 0, b: 0 },
-                scene: {
-                    aspectmode: "data",
-                    xaxis: { showgrid: true, zeroline: true, title: "X" },
-                    yaxis: { showgrid: true, zeroline: true, title: "Y" },
-                    zaxis: { showgrid: true, zeroline: true, title: "Z" }
-                },
-                title: {
-                    text: `Registration after ${data.num_iter} iterations`,
-                    font: {
-                        size: 12,
-                    }
-                },
-                font: {
-                    family: 'Courier New, monospace',
-                    color: '#000000'
-                },
-                updatemenus: [{
-                    buttons: dropdownOptions,
-                    direction: "down",
-                    showactive: true,
-                    active: 1,
-                    x: 0,
-                    y: 1.15,  // Move closer to the plot
-                    xanchor: "left",
-                    yanchor: "top",
-                    font: {
-                        size: 10  // ✅ Reduce font size
-                    },
-                    bgcolor: "rgba(255,255,255,0.7)",  // ✅ Optional: Make background semi-transparent
-                    borderwidth: 1,
-                    bordercolor: "gray",
-                }],
-                uirevision: "constant"
-            };
-
-            // ✅ Initialize the plot with all traces
-            Plotly.react("registrations-plot", allTraces, layout);
+        socket.on('registrations', data => {
+            currentIter = data.num_iter;
+            regTraces = buildRegistrationTraces(data);
+            refreshRegistrations();
         });
 
 
@@ -423,6 +388,25 @@
 
             // ✅ Use `Plotly.react()` to update the figure efficiently
             Plotly.react("gmm-means-plot", traces, layout);
+
+            //if (data.num_iter === 100) {
+            // build and stash the two centroid traces
+            gmmXinTrace = {
+                x: data.Xin.map(p => p[0]), y: data.Xin.map(p => p[1]), z: data.Xin.map(p => p[2]),
+                mode: "markers", type: "scatter3d",
+                marker: { size: 4, color: "green", symbol: "diamond" },
+                name: "Xin (init)"
+            };
+            gmmXTrace = {
+                x: data.X.map(p => p[0]), y: data.X.map(p => p[1]), z: data.X.map(p => p[2]),
+                mode: "markers", type: "scatter3d",
+                marker: { size: 4, color: "orange", symbol: "diamond" },
+                name: "X (final)"
+            };
+
+            // redraw with the new GMM means in place
+            refreshRegistrations();
+            //}
         });
 
         // ✅ Fetch and Display Configuration Data
