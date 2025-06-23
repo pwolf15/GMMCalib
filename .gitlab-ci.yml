@@ -33,3 +33,4 @@ test:
     entrypoint: [""]   # so `script:` runs directly inside your image
   script:
     - python src/gmmcalib.py
+    - python src/compare_calibrate.py
