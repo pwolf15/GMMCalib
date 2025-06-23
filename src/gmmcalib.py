@@ -26,7 +26,7 @@ def calibrate(data_path, config_file_path, sequence):
     print("Calibration Error: \n")
     print(T_final)
     gmmcalib_result = [T_final, X]
-    with open("/app/output/gmmcalib_result.pkl", "wb") as f:
+    with open("./output/gmmcalib_result.pkl", "wb") as f:
         pickle.dump(gmmcalib_result, f) 
 
 if __name__ == "__main__":
