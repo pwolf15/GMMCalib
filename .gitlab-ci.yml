@@ -25,7 +25,6 @@ build_image:
     - docker push "$IMAGE_NAME"
   when: manual
   allow_failure: true  
-
 # test stage
 test:
   stage: test
