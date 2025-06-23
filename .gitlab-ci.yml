@@ -1,0 +1,32 @@
+stages:
+  - build
+  - test
+
+variables:
+  # Use the Docker‐in‐Docker service
+  DOCKER_DRIVER: overlay2
+  # Define the image name / tag you’ll build
+  IMAGE_NAME: "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME"
+
+build_image:
+  stage: build
+  image: docker:latest           # docker client
+  services:
+    - docker:dind                # docker daemon
+  variables:
+    # avoid TLS issues
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - echo "Logging into registry (if needed)..."
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - echo "Building Docker image $IMAGE_NAME"
+    - docker build -t "$IMAGE_NAME" . -f docker/Dockerfile
+    - docker push "$IMAGE_NAME"
+
+test:
+  stage: test
+  image:
+    name: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
+    entrypoint: [""]   # so `script:` runs directly inside your image
+  script:
+    - echo "Inside prebuilt container!"
