@@ -49,7 +49,7 @@ Run CADCalib with:
 Or directly:
 
     docker run -v $(pwd)/output:/app/output -v $(pwd)/data:/app/data -it gmmcalib:latest \
-        python src/gmmcalib.py \
+        python -m gmmcalib.calibrate \
         --data_path ../data/single_chair/ \
         --config_file_path ../config/config_single_chair.yaml \
         --model_path ../data/models/chair.obj \

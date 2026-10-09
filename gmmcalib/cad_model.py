@@ -7,7 +7,7 @@ import numpy as np
 import open3d as o3d
 from scipy.spatial import cKDTree
 
-from common_types import FloatArray, PointsN3
+from .common_types import FloatArray, PointsN3
 
 
 class CADModel:

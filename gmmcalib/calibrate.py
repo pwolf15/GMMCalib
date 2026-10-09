@@ -2,14 +2,15 @@ import argparse
 import os
 import pickle
 
+import importlib
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-import create_gt
-import transformPCDs
-from cad_model import CADModel
-from data_loader import PCDLoader
-from gmm_initialization import initialize_centers
+from . import create_gt
+from . import transformPCDs
+from .cad_model import CADModel
+from .data_loader import PCDLoader
+from .gmm_initialization import initialize_centers
 
 GMM_VARIANTS = {
     "default": ("gmm", "GMM"),
@@ -26,7 +27,7 @@ def get_gmm_class(name: str):
             f"Unknown GMM type: {name}. Available: {list(GMM_VARIANTS.keys())}"
         )
     module_name, class_name = GMM_VARIANTS[name]
-    module = __import__(module_name, fromlist=[class_name])
+    module = importlib.import_module(f".{module_name}", __package__)
     return getattr(module, class_name)
 
 

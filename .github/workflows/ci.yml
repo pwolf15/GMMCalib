@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, feature/cadcalib]
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -32,7 +32,7 @@ jobs:
             -v "$PWD:/workspace" \
             -w /workspace \
             gmmcalib:ci \
-            /bin/bash -lc "python src/gmmcalib.py"
+            /bin/bash -lc "python -m gmmcalib.calibrate"
 
       - name: Run CADCalib smoke test
         run: |

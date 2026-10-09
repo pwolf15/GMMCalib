@@ -16,4 +16,4 @@ COPY . /app
 RUN uv pip install --system --no-cache -r requirements.txt
 EXPOSE 8000
 
-CMD ["python", "src/gmmcalib.py"]
+CMD ["python", "-m", "gmmcalib.calibrate"]
