@@ -2,10 +2,10 @@ import numpy as np
 from typing import Any, Dict, List, Optional, Tuple
 from numpy.typing import NDArray
 
-from common_types import Alpha, Centers3K, PointCloud3N, PrecisionVector, Priors, Rotation, Translation, ViewTransforms
-import transformPCDs
-from gmm_base import GMMBase
-from rerun_gmm_visualizer import RerunGMMVisualizer
+from .common_types import Alpha, Centers3K, PointCloud3N, PrecisionVector, Priors, Rotation, Translation, ViewTransforms
+from . import transformPCDs
+from .gmm_base import GMMBase
+from .rerun_gmm_visualizer import RerunGMMVisualizer
 
 
 class GMM(GMMBase):

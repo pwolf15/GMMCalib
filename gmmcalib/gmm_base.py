@@ -3,8 +3,8 @@ from typing import List, Tuple
 
 import open3d as o3d
 import numpy as np
-from cad_model import CADModel
-from common_types import (
+from .cad_model import CADModel
+from .common_types import (
     Alpha,
     FloatArray,
     PointCloud3N,
@@ -15,9 +15,9 @@ from common_types import (
     ViewTransforms,
     as_translation,
 )
-from error_metrics import rotation_translation_error
+from .error_metrics import rotation_translation_error
 import yaml
-import transformPCDs
+from . import transformPCDs
 
 
 class GMMBase(ABC):

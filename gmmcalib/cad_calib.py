@@ -5,8 +5,8 @@ import numpy as np
 from numba import njit
 from numpy.typing import NDArray
 
-import transformPCDs
-from common_types import (
+from . import transformPCDs
+from .common_types import (
     Alpha,
     Centers3K,
     NormalsN3,
@@ -22,8 +22,8 @@ from common_types import (
     as_rotation,
     as_translation,
 )
-from gmm_base import GMMBase
-from rerun_gmm_visualizer import RerunGMMVisualizer
+from .gmm_base import GMMBase
+from .rerun_gmm_visualizer import RerunGMMVisualizer
 
 
 def _skew(v: NDArray[np.float64]) -> NDArray[np.float64]:

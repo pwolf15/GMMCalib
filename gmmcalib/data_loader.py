@@ -7,7 +7,7 @@ import numpy as np
 import open3d as o3d
 import yaml
 
-from transformPCDs import compute_global_transform
+from .transformPCDs import compute_global_transform
 
 
 class PCDLoader:
